@@ -62,22 +62,18 @@ public:
         return true;
     }
 
-    virtual const OpenAce::Config::WifiNamePassword wifiClient() const override
-    {
-        return OpenAce::Config::WifiNamePassword
-        {
-            "",
-            ""
-        };
-    }
+    // virtual const OpenAce::Config::WifiNamePassword wifiClient() const override
+    // {
+    //     return OpenAce::Config::WifiNamePassword
+    //     {
+    //         "",
+    //         ""
+    //     };
+    // }
 
-    virtual const OpenAce::Config::WifiNamePassword wifiServer() const override
+    virtual const OpenAce::Config::WifiServiceData wifiService() const override
     {
-        return OpenAce::Config::WifiNamePassword
-        {
-            "",
-            ""
-        };
+        return OpenAce::Config::WifiServiceData{};
     }
 
     virtual const OpenAce::Config::IpPort ipPortBypath(const etl::string_view pathToValue, const etl::string_view key) const override
