@@ -48,9 +48,9 @@ VISUALIZE_MAIN_CASE=true;
 
 VISUALIZE_LID_POSITION=0; // [0:0.5:50]
 
-VISUALIZE_CUT=true;
-VISUALIZE_CUT_POS_X=75; // [-75:1:75]
-VISUALIZE_CUT_POS_Y=75; // [-75:1:75]
+VISUALIZE_CUT=false;
+VISUALIZE_CUT_POS_X=100; // [-75:1:75]
+VISUALIZE_CUT_POS_Y=0; // [-75:1:75]
 
 
 
@@ -108,7 +108,7 @@ bottomAndWall(size=case, wall=WALL_THICKNESS, bottom=BOTTOM_THICKNESS, rounding=
       up(FEET_HEIGHT) 
     
       color_this("green")
-      openace_pcb(anchor=RIGHT+BOTTOM, visual=$preview && VISUALIZE_PCB) {
+      gatas_pcb(anchor=RIGHT+BOTTOM, visual=$preview && VISUALIZE_PCB) {
         // Screw Mounts PI
         attach(["mnt1", "mnt2", "mnt3", "mnt4"]) 
           color("lightgreen") orient(anchor=BOTTOM) down(ATTACH_OFFSET) {
@@ -316,7 +316,7 @@ module top_text(h=1) {
   color("darkgray") {
 
       linear_extrude(h) zrot(0) 
-        text("OPENACE", font = "Arial Black", size = 8, anchor=CENTER);
+        text("GA_TAS", font = "Arial Black", size = 8, anchor=CENTER);
 
 
       right(case_inner.x/2) fwd(29) linear_extrude(h) zrot(0) 
@@ -412,10 +412,10 @@ module bottomAndWall(h, size, wall, bottom, ichamfer=3, rounding=0, center, anch
 ////////////////////////////////////////////////////////////////////////////////
 
 
-// openace_pcb( visual=true) {
+// gatas_pcb( visual=true) {
 //  show_anchors(std=false);
 //}
-module openace_pcb(anchor=BOTTOM, spin=0, orient=UP, center, bbox=false, rough=false, visual=true, pi=4) {
+module gatas_pcb(anchor=BOTTOM, spin=0, orient=UP, center, bbox=false, rough=false, visual=true, pi=4) {
     size=[86.87,84,1.6];
     corner=[-size.x/2, -size.y/2, -size.z/2];
 
