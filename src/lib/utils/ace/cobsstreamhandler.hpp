@@ -28,7 +28,7 @@ public:
     void handle(float ownShipLat, float ownShipLon, etl::span<uint8_t> cobsBuffer)
     {
         gulp.setRef(cobsBuffer);
-        etl::vector<GATAS::AircraftPositionInfo, 8> positionMessages;
+        etl::vector<GATAS::AircraftPositionInfo, GATAS::IngressAircraftPositionsMsg::MAX_POSITIONS> positionMessages;
 
         etl::span<uint8_t> data;
         while (gulp.pop_into(data))
@@ -45,7 +45,7 @@ public:
                 auto aircraftPosition = BinaryMessages::deserializeAircraftPositionV1(ownShipLat, ownShipLon, reader);
                 if (positionMessages.full())
                 {
-                    bus.receive(GATAS::AircraftPositionsMsg(positionMessages));
+                    bus.receive(GATAS::IngressAircraftPositionsMsg(positionMessages));
                     positionMessages.clear();
                 }
                 positionMessages.push_back(aircraftPosition);
@@ -79,7 +79,7 @@ public:
         // Send the left over if any
         if (!positionMessages.empty())
         {
-            bus.receive(GATAS::AircraftPositionsMsg(positionMessages));
+            bus.receive(GATAS::IngressAircraftPositionsMsg(positionMessages));
         }
     }
 };

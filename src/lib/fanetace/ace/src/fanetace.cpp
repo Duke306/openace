@@ -11,10 +11,11 @@
 #include "ace/semaphoreguard.hpp"
 #include "ace/measure.hpp"
 #include "ace/spinlockguard.hpp"
+#include "ace/poolallocator.hpp"
 
 void FanetAce::start()
 {
-    xTaskCreate(FanetAceTask, FanetAce::NAME.cbegin(), configMINIMAL_STACK_SIZE + 256, this, tskIDLE_PRIORITY + 2, &taskHandle);
+    xTaskCreate(fanetAceTaskTrampoline, FanetAce::NAME.cbegin(), configMINIMAL_STACK_SIZE + 256, this, tskIDLE_PRIORITY + 2, &taskHandle);
     getBus().subscribe(*this);
 };
 
@@ -29,29 +30,31 @@ GATAS::PostConstruct FanetAce::postConstruct()
     return GATAS::PostConstruct::OK;
 }
 
-void FanetAce::FanetAceTask(void *arg)
+void FanetAce::fanetAceTaskTrampoline(void *arg) {
+    FanetAce *fanetAce = static_cast<FanetAce *>(arg);
+    fanetAce->fanetAceTask(arg);
+}
+
+void FanetAce::fanetAceTask(void *arg)
 {
     (void)arg;
-    FanetAce *fanetAce = static_cast<FanetAce *>(arg);
     uint32_t waitUntil = 100;
     while (true)
     {
 
-        auto delay = (waitUntil - CoreUtils::timeMs32()) + 1;
-        // printf("Delay %ld\n", delay);
-        if (uint32_t notifyValue = ulTaskNotifyTake(pdTRUE, TASK_DELAY_MS(delay)))
+        int32_t delay = static_cast<int32_t>(waitUntil - CoreUtils::timeMs32());
+        if (delay < 1)
         {
-            (void)notifyValue;
-
-            if (notifyValue & TaskState::EXIT)
-            {
-                vTaskDelete(nullptr);
-                return;
-            }
+            delay = 1;
         }
-        if (auto guard = SemaphoreGuard(100, fanetAce->mutex))
+        // printf("Delay %ld\n", delay);
+
+        uint32_t notifyValue = 0;
+        xTaskNotifyWait(pdFALSE, ULONG_MAX, &notifyValue, TASK_DELAY_MS(static_cast<uint32_t>(delay)));
+
+        if (auto guard = SemaphoreGuard(100, mutex))
         {
-            waitUntil = fanetAce->protocol.handleTx();
+            waitUntil = protocol.handleTx();
         }
     }
 }
@@ -60,7 +63,7 @@ void FanetAce::on_receive(const GATAS::ConfigUpdatedMsg &msg)
 {
     if (msg.moduleName == Configuration::NAME)
     {
-        gaTasConfiguration = msg.config.gaTasConfig();
+        gaTasConfiguration = SpinlockGuard::copyWithLock(CoreUtils::sharedSpinLock(), msg.config.gaTasConfig());
         protocol.ownAddress(FANET::Address{gaTasConfiguration.conspicuity.icaoAddress});
     }
 }
@@ -70,6 +73,7 @@ void FanetAce::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
     if (msg.radioParameters.config->isTxDataSource(GATAS::DataSource::FANET))
     {
         auto ownship = SpinlockGuard::copyWithLock(CoreUtils::sharedSpinLock(), ownshipPosition);
+        auto gatasConfig = SpinlockGuard::copyWithLock(CoreUtils::sharedSpinLock(), gaTasConfiguration);
 
         FANET::TrackingPayload payload;
         payload.latitude(ownship.lat)
@@ -78,9 +82,9 @@ void FanetAce::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
             .speed(ownship.groundSpeed * MS_TO_KPH)
             .groundTrack(ownship.track)
             .climbRate(ownship.verticalSpeed)
-            .tracking(!gaTasConfiguration.conspicuity.noTrack)
+            .tracking(!gatasConfig.conspicuity.noTrack)
             .turnRate(ownship.hTurnRate)
-            .aircraftType(mapAircraftCategory(gaTasConfiguration.conspicuity.category));
+            .aircraftType(mapAircraftCategory(gatasConfig.conspicuity.category));
 
         auto packet = FANET::Packet<1>()
                           .payload(payload)
@@ -111,11 +115,12 @@ bool FanetAce::fanet_sendFrame(uint8_t codingRate, etl::span<const uint8_t> data
     {
         etl::mem_copy(data.cbegin(), data.cend(), poolData);
         getBus().receive(GATAS::RadioTxFrameMsg{
+            getGlobalPool(),
             radioParameters,
             poolData,
             data.size(),
             radioNo});
-        //GATAS_INFO("FANET request position");
+        // GATAS_INFO("FANET request position");
         return true;
     }
     return false;
@@ -134,10 +139,16 @@ void FanetAce::on_receive(const GATAS::OwnshipPositionMsg &msg)
 void FanetAce::on_receive(const GATAS::RadioRxMsg &msg)
 {
     (void)msg;
+    if (msg.dataSource != GATAS::DataSource::FANET)
+    {
+        return;
+    }
+    datasourceTimeStats.addReceiveStat(msg.frequency, CoreUtils::msInSecond());
+
     statistics.received += 1;
 
     FANET::Header::MessageType messageType;
-    auto spanMsg = etl::span<const uint8_t>(msg.frame, msg.lengthBytes);
+    auto spanMsg = etl::span<const uint8_t>(msg.frame.get(), msg.lengthBytes);
     if (auto guard = SemaphoreGuard(10, mutex))
     {
         messageType = protocol.handleRx(msg.rssidBm, spanMsg);
@@ -171,10 +182,10 @@ void FanetAce::on_receive(const GATAS::RadioRxMsg &msg)
         auto aircraftCat = mapAircraftCategory(tp.aircraftType());
         auto groundSpeed = tp.speed() * KPH_TO_MS;
 
-        GATAS::AircraftPositionMsg aircraftPosition{
+        GATAS::IngressAircraftPositionMsg aircraftPosition{
             GATAS::AircraftPositionInfo{
                 CoreUtils::timeUs32(),
-                "",
+                GATAS::CallSign{},
                 packet.source().asUint(),
                 GATAS::AddressType::FANET,
                 GATAS::DataSource::FANET,
@@ -207,10 +218,10 @@ void FanetAce::on_receive(const GATAS::RadioRxMsg &msg)
             return;
         }
 
-        GATAS::AircraftPositionMsg aircraftPosition{
+        GATAS::IngressAircraftPositionMsg aircraftPosition{
             GATAS::AircraftPositionInfo{
                 CoreUtils::timeUs32(),
-                "",
+                GATAS::CallSign{},
                 packet.source().asUint(),
                 GATAS::AddressType::FANET,
                 GATAS::DataSource::FANET,
@@ -250,6 +261,7 @@ void FanetAce::getData(etl::string_stream &stream, const etl::string_view path) 
 {
     (void)path;
     stream << "{";
+    datasourceTimeStats.toStream(stream);
     stream << "\"received:k\":" << statistics.received;
     stream << ",\"send:k\":" << statistics.send;
     stream << ",\"outOfDistance\":" << statistics.outOfDistance;

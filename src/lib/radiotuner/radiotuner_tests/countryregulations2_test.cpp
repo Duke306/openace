@@ -37,13 +37,17 @@ TEST_CASE("getFrequency", "[single-file]")
 
 TEST_CASE("getSlot", "[single-file]")
 {
-    REQUIRE(4 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE1, GATAS::DataSource::ADSLM).radioConfig.pcId);
-    REQUIRE(2 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE1, GATAS::DataSource::FLARM).radioConfig.pcId);
-    REQUIRE(2 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE1, GATAS::DataSource::FLARM).radioConfig.pcId);
-    REQUIRE(3 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE2, GATAS::DataSource::OGN1).radioConfig.pcId);
+    // PROTOCOL_ADSL uses DataSource::ADSLM and is in the TX table (M-band ADSL)
+    REQUIRE(1 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE1, GATAS::DataSource::ADSLM).size());
+    REQUIRE(2 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE1, GATAS::DataSource::FLARM)[0].radioConfig.pcId);
+    REQUIRE(2 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE1, GATAS::DataSource::FLARM)[0].radioConfig.pcId);
+    REQUIRE(3 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE2, GATAS::DataSource::OGN1)[0].radioConfig.pcId);
 
-    // Not Configured so 0
-    REQUIRE(0 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE6, GATAS::DataSource::PAW).radioConfig.pcId);
+    // ADSLO_HDR has 2 TX entries for ZONE1: one for TRAFFIC and one for UPLINK
+    REQUIRE(2 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE1, GATAS::DataSource::ADSLO_HDR).size());
+
+    // Not configured: empty span
+    REQUIRE(CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE6, GATAS::DataSource::FANET).empty());
 }
 
 TEST_CASE("isInTiming normal window", "[timing]")
@@ -97,18 +101,17 @@ TEST_CASE("fitsAnyTiming with multiple windows", "[timing]")
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_CASE("getProtocolRxTimingsForZone - returns all ZONE1 slots when all sources requested", "[CountryRegulations][rxZone]")
 {
-    etl::array sources = {
-        GATAS::DataSource::FLARM,
-        GATAS::DataSource::OGN1,
-        GATAS::DataSource::ADSLM,
-        GATAS::DataSource::ADSLO_HDR,
-        GATAS::DataSource::FANET};
+    etl::array<GATAS::DataSourceConfig, 4> sources = {{
+        {GATAS::DataSource::FLARM, GATAS::DataSourceMode::RX_TX},
+        {GATAS::DataSource::OGN1, GATAS::DataSourceMode::RX_TX},
+        {GATAS::DataSource::ADSLO_HDR, GATAS::DataSourceMode::RX_TX},
+        {GATAS::DataSource::FANET, GATAS::DataSourceMode::RX_TX}}};
     auto result = CountryRegulations::getProtocolRxTimingsForZone(
         CountryRegulations::Zone::enum_type::ZONE1,
-        etl::span<const GATAS::DataSource>(sources.data(), sources.size()));
+        etl::span<const GATAS::DataSourceConfig>(sources.data(), sources.size()));
 
-    // All 5 ZONE1 entries in protocolRxTimimgs should be returned
-    REQUIRE(result.size() == 5);
+    // 4 ZONE1 RX entries (ADSLM removed from table)
+    REQUIRE(result.size() == 4);
     for (auto *slot : result)
     {
         REQUIRE(slot->zone == CountryRegulations::Zone::enum_type::ZONE1);
@@ -117,10 +120,11 @@ TEST_CASE("getProtocolRxTimingsForZone - returns all ZONE1 slots when all source
 
 TEST_CASE("getProtocolRxTimingsForZone - filters to only requested sources", "[CountryRegulations][rxZone]")
 {
-    etl::array sources = {GATAS::DataSource::FLARM};
+    etl::array<GATAS::DataSourceConfig, 1> sources = {{
+        {GATAS::DataSource::FLARM, GATAS::DataSourceMode::RX_TX}}};
     auto result = CountryRegulations::getProtocolRxTimingsForZone(
         CountryRegulations::Zone::enum_type::ZONE1,
-        etl::span<const GATAS::DataSource>(sources.data(), sources.size()));
+        etl::span<const GATAS::DataSourceConfig>(sources.data(), sources.size()));
 
     REQUIRE(result.size() == 1);
     REQUIRE(result[0]->radioConfig.isRxDataSource(GATAS::DataSource::FLARM));
@@ -128,20 +132,22 @@ TEST_CASE("getProtocolRxTimingsForZone - filters to only requested sources", "[C
 
 TEST_CASE("getProtocolRxTimingsForZone - wrong zone returns empty", "[CountryRegulations][rxZone]")
 {
-    etl::array sources = {GATAS::DataSource::FLARM, GATAS::DataSource::OGN1};
+    etl::array<GATAS::DataSourceConfig, 2> sources = {{
+        {GATAS::DataSource::FLARM, GATAS::DataSourceMode::RX_TX},
+        {GATAS::DataSource::OGN1, GATAS::DataSourceMode::RX_TX}}};
     auto result = CountryRegulations::getProtocolRxTimingsForZone(
         CountryRegulations::Zone::enum_type::ZONE5, // No ZONE5 entries in protocolRxTimimgs
-        etl::span<const GATAS::DataSource>(sources.data(), sources.size()));
+        etl::span<const GATAS::DataSourceConfig>(sources.data(), sources.size()));
 
     REQUIRE(result.empty());
 }
 
 TEST_CASE("getProtocolRxTimingsForZone - empty source list returns empty", "[CountryRegulations][rxZone]")
 {
-    etl::array<GATAS::DataSource, 0> sources{};
+    etl::array<GATAS::DataSourceConfig, 0> sources{};
     auto result = CountryRegulations::getProtocolRxTimingsForZone(
         CountryRegulations::Zone::enum_type::ZONE1,
-        etl::span<const GATAS::DataSource>(sources.data(), sources.size()));
+        etl::span<const GATAS::DataSourceConfig>(sources.data(), sources.size()));
 
     REQUIRE(result.empty());
 }
@@ -217,89 +223,6 @@ TEST_CASE("frequencyByTimestamp - deterministic: same input same output", "[Coun
     REQUIRE(CountryRegulations::frequencyByTimestamp(12348, 24) == 5);
     REQUIRE(CountryRegulations::frequencyByTimestamp(12349, 24) == 16);
     REQUIRE(CountryRegulations::frequencyByTimestamp(123410, 24) == 23);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// nextRandomTxTime
-// ─────────────────────────────────────────────────────────────────────────────
-TEST_CASE("nextRandomTxTime - result falls within txMin..txMax + tolerance", "[CountryRegulations][txTime]")
-{
-    // Set time so msInSecond() returns something mid-second (e.g. 100ms)
-    setTime(1700000000100ULL);
-
-    const auto &pts = CountryRegulations::getProtocolTxTimings(
-        CountryRegulations::Zone::enum_type::ZONE1, GATAS::DataSource::FLARM);
-
-    // Run several times since it's random
-    int successCount = 0;
-    for (int i = 0; i < 20; ++i)
-    {
-        uint32_t delay = CountryRegulations::nextRandomTxTime(pts);
-        if (delay != UINT32_MAX)
-        {
-            // Delay should be >= txMinTime and reasonably bounded
-            REQUIRE(delay >= pts.txMinTime);
-            ++successCount;
-        }
-    }
-    // Most attempts should succeed from a mid-second position
-    REQUIRE(successCount > 10);
-}
-
-TEST_CASE("nextRandomTxTime - result lands within a valid EU_FLARMT timing window", "[CountryRegulations][txTime]")
-{
-    const auto &pts = CountryRegulations::getProtocolTxTimings(
-        CountryRegulations::Zone::enum_type::ZONE1, GATAS::DataSource::FLARM);
-
-    // Run from several different starting positions within the second
-    for (uint32_t startMs : {751u, 100u, 250u, 500u, 750u})
-    {
-        setTime(1700000000000ULL + startMs);
-
-        int successCount = 0;
-        int failCount = 0;
-
-        for (int i = 0; i < 20; ++i)
-        {
-            uint32_t delay = CountryRegulations::nextRandomTxTime(pts);
-            if (delay == UINT32_MAX)
-            {
-                ++failCount;
-                continue;
-            }
-
-            uint32_t futureMs = (startMs + delay) % 1000;
-
-            // Must land in CH00: 400..790 or CH01 wrap: 800..989 or 0..189
-            // (790 and 189 account for REDUCE_ENDTIME_MS=10)
-            bool inCH00 = (futureMs >= 400 && futureMs < 790);
-            bool inCH01 = (futureMs >= 800 || futureMs < 190);
-
-            INFO("startMs=" << startMs << " delay=" << delay << " futureMs=" << futureMs);
-            REQUIRE((inCH00 || inCH01));
-            ++successCount;
-        }
-
-        // From any starting position, most attempts should find a valid slot
-        REQUIRE(successCount >= 15);
-    }
-}
-
-TEST_CASE("nextRandomTxTime - delay is at least txMinTime", "[CountryRegulations][txTime]")
-{
-    setTime(1700000000100ULL);
-
-    const auto &pts = CountryRegulations::getProtocolTxTimings(
-        CountryRegulations::Zone::enum_type::ZONE1, GATAS::DataSource::FLARM);
-
-    for (int i = 0; i < 20; ++i)
-    {
-        uint32_t delay = CountryRegulations::nextRandomTxTime(pts);
-        if (delay != UINT32_MAX)
-        {
-            REQUIRE(delay >= pts.txMinTime);
-        }
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

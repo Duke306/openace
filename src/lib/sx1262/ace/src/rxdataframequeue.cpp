@@ -11,16 +11,9 @@
 
 GATAS::PostConstruct RxDataFrameQueue::postConstruct()
 {
-    dataQueue = xQueueCreate(2, sizeof(GATAS::DataFrame));
-    if (dataQueue == nullptr)
-    {
-        return GATAS::PostConstruct::XQUEUE_ERROR;
-    }
-
     // Task must be lower compared to any SX1262 task
-    if (xTaskCreate(radioQueueTaskTrampoline, RxDataFrameQueue::NAME.cbegin(), configMINIMAL_STACK_SIZE + 512, this, tskIDLE_PRIORITY + 2, &taskHandle) != pdPASS)
+    if (xTaskCreate(radioQueueTaskTrampoline, RxDataFrameQueue::NAME.cbegin(), configMINIMAL_STACK_SIZE + 1024, this, tskIDLE_PRIORITY + 2, &taskHandle) != pdPASS)
     {
-        vQueueDelete(dataQueue);
         return GATAS::PostConstruct::TASK_ERROR;
     }
 
@@ -32,12 +25,24 @@ void RxDataFrameQueue::start()
     getBus().subscribe(*this);
 };
 
+bool RxDataFrameQueue::push(GATAS::DataFrame &&frame)
+{
+    if (!dataQueue.push(etl::move(frame)))
+    {
+        statistics.queueFull += 1;
+        return false;
+    }
+
+    xTaskNotifyGive(taskHandle);
+    return true;
+}
+
 void RxDataFrameQueue::getData(etl::string_stream &stream, const etl::string_view path) const
 {
     (void)path;
     stream << "{";
-    stream << ",\"totalIncoming:k\":\"" << statistics.totalIncoming << "\"";
-    stream << ",\"totalOutgoing:k\":\"" << statistics.totalOutgoing << "\"";
+    stream << "\"totalQueued:k\":\"" << statistics.totalQueued << "\",";
+    stream << "\"queueFull:err\":\"" << statistics.queueFull << "\"";
     stream << "}";
 }
 
@@ -54,35 +59,30 @@ void RxDataFrameQueue::radioQueueTask(void *arg)
     GATAS::DataFrame rxFrame;
     while (true)
     {
-        if (xQueueReceive(dataQueue, &rxFrame, portMAX_DELAY) == pdPASS)
+        if (!dataQueue.pop(rxFrame))
         {
-            PoolReleaseGuard guard{getGlobalPool(), rxFrame.frame};
-            if (rxFrame.length < 4)
-            {
-                GATAS_WARN("Received frame with length < 4 bytes, ignoring");
-                continue;
-            }
+            uint32_t notifyValue = 0;
+            xTaskNotifyWait(pdFALSE, ULONG_MAX, &notifyValue, portMAX_DELAY);
+            continue;
+        }
 
-            statistics.totalOutgoing += 1;
-            if (rxFrame.config->manchester)
+        statistics.totalQueued += 1;
+        if (rxFrame.config->manchester)
+        {
+            size_t byteLength = rxFrame.length >> 1;
+            if (auto errorFrame = static_cast<uint8_t *>(getGlobalPool().alloc(byteLength)))
             {
-                size_t byteLength = rxFrame.length >> 1;
-                auto error = static_cast<uint8_t *>(getGlobalPool().alloc(byteLength));
-                if (error == nullptr)
-                {
-                    continue;
-                }
-
                 auto msg = GATAS::RadioRxManchesterMsg{
-                    rxFrame.frame,
-                    error,
+                    getGlobalPool(),
+                    rxFrame.frame.detach(),
+                    errorFrame,
                     byteLength,
                     rxFrame.epochSeconds,
                     rxFrame.frequency,
                     rxFrame.config->dataSource(),
                     rxFrame.rssidBm};
 
-                manchesterDecodeInline(msg.frame, msg.error, rxFrame.length);
+                manchesterDecodeInline(msg.frame.get(), msg.error.get(), rxFrame.length);
 
                 // Handle multi protocol situations
                 // auto ds = decideDataSource(rxFrame.config->dataSource(), msg.frame32(), rxFrame.length );
@@ -102,20 +102,19 @@ void RxDataFrameQueue::radioQueueTask(void *arg)
                 //     msg.dataSource = ds.dataSource;
                 // }
 
-                guard.disarm();
                 getBus().receive(msg);
             }
-            else
-            {
-                guard.disarm();
-                getBus().receive(GATAS::RadioRxMsg{
-                    rxFrame.frame,
-                    rxFrame.length,
-                    rxFrame.epochSeconds,
-                    rxFrame.frequency,
-                    rxFrame.config->dataSource(),
-                    rxFrame.rssidBm});
-            }
+        }
+        else
+        {
+            getBus().receive(GATAS::RadioRxMsg{
+                getGlobalPool(),
+                rxFrame.frame.detach(),
+                rxFrame.length,
+                rxFrame.epochSeconds,
+                rxFrame.frequency,
+                rxFrame.config->dataSource(),
+                rxFrame.rssidBm});
         }
     }
 }
@@ -172,17 +171,6 @@ RxDataFrameQueue::DataSourceMatch RxDataFrameQueue::decideDataSource(GATAS::Data
         }
     }
 
-    if (ds == GATAS::DataSource::PAW && frameLengthBytes >= 31) // Pilot aware??
-    {
-        const uint32_t SignLDR[6] = {0x00000000, 0x00187100};
-        if (diffBits<2>(frame, SignLDR) <= 2)
-        {
-            return {
-                .dataSource = GATAS::DataSource::PAW,
-                .bitsToShift = 48,
-                .frameLength = frameLengthBytes};
-        }
-    }
     return {
         .dataSource = ds,
         .bitsToShift = 0,

@@ -59,15 +59,14 @@ GATAS::PostConstruct AbstractGnss::postConstruct()
 
 void AbstractGnss::start()
 {
-    // Needs a larger stack because GPS is part of a chain of events
-    xTaskCreate(receiveTask, AbstractGnss::NAME.cbegin(),
-                configMINIMAL_STACK_SIZE + 768, this, tskIDLE_PRIORITY + 3, &taskHandle);
-
     pioSerial.start();
     if (!softwarebasedPPS || ABSTRACT_GNSS_MEASURE_SOFTPPS_LAG)
     {
-        registerPinInterrupt(ppsPin, GPIO_IRQ_EDGE_RISE, AbstractGnss_pps_callback);
+        registerPinInterrupt(ppsPin, GPIO_IRQ_EDGE_RISE, pinIntrCallback_t::create<AbstractGnss_pps_callback>());
     }
+
+    // Needs a larger stack because GPS is part of a chain of events
+    xTaskCreate(receiveTask, AbstractGnss::NAME.cbegin(), configMINIMAL_STACK_SIZE + 768, this, tskIDLE_PRIORITY + 3, &taskHandle);
 };
 
 void AbstractGnss::receiveTask(void *arg)
@@ -84,29 +83,21 @@ void AbstractGnss::receiveTask(void *arg)
     GATAS::NMEAString sentence;
     while (true)
     {
-        if (uint32_t notifyValue = ulTaskNotifyTake(pdTRUE, portMAX_DELAY))
+
+        uint32_t notifyValue = 0;
+        xTaskNotifyWait(pdFALSE, ULONG_MAX, &notifyValue, portMAX_DELAY);
+
+        while (abstractGnss->queue.pop(sentence))
         {
-            if (notifyValue & TaskState::EXIT)
+            if (abstractGnss->preProcessSentence(sentence))
             {
-                vTaskDelete(nullptr);
-                return;
-            }
+                abstractGnss->getBus().receive(GATAS::GPSSentenceMsg{sentence});
+                abstractGnss->statistics.totalReceived += 1;
 
-            if (notifyValue & TaskState::NEW)
-            {
-                while (abstractGnss->queue.pop(sentence))
+                if (ABSTRACT_GNSS_MEASURE_SOFTPPS_LAG && abstractGnss->statistics.totalReceived % 10 == 0)
                 {
-                    if (abstractGnss->preProcessSentence(sentence))
-                    {
-                        abstractGnss->getBus().receive(GATAS::GPSSentenceMsg{sentence});
-                        abstractGnss->statistics.totalReceived += 1;
-
-                        if (ABSTRACT_GNSS_MEASURE_SOFTPPS_LAG && abstractGnss->statistics.totalReceived % 10 == 0)
-                        {
-                            // Note: Using printf so it will show up in a release build as well
-                            printf("Software PPS lags %" PRIu32 "us behind\n", abstractGnss->softPPSlagUs);
-                        }
-                    }
+                    // Note: Using printf so it will show up in a release build as well
+                    printf("Software PPS lags %" PRIu32 "us behind\n", abstractGnss->softPPSlagUs);
                 }
             }
         }
@@ -123,7 +114,7 @@ void AbstractGnss::getData(etl::string_stream &stream, const etl::string_view pa
     stream << ",\"baudrate\":" << statistics.baudrate;
 #if ABSTRACT_GNSS_MEASURE_SOFTPPS_LAG == 1
     stream << ",\"softPPSlagUs\":" << softPPSlagUs;
-#endif    
+#endif
     stream << "}";
 }
 

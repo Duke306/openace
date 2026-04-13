@@ -25,21 +25,17 @@ void SerialADSB::serialADSBTask(void *arg)
     GATAS::ADSBString sentence;
     while (true)
     {
-        if (uint32_t notifyValue = ulTaskNotifyTake(pdTRUE, portMAX_DELAY))
+        uint32_t notifyValue = 0;
+        xTaskNotifyWait(pdFALSE, ULONG_MAX, &notifyValue, portMAX_DELAY);
+        if (notifyValue)
         {
-            if (notifyValue & TaskState::EXIT)
-            {
-                vTaskDelete(nullptr);
-                return;
-            }
-
             if (notifyValue & TaskState::NEW)
             {
                 while (serialAdsb->queue.pop(sentence))
                 {
                     serialAdsb->statistics.totalReceived += 1;
                     // Finalise implementation to create the binary message here and send
-//                    serialAdsb->getBus().receive(GATAS::ADSBMessageBin{sentence});
+                    //                    serialAdsb->getBus().receive(GATAS::ADSBMessageBinMsg{sentence});
                 }
             }
         }
@@ -55,7 +51,7 @@ void SerialADSB::getData(etl::string_stream &stream, const etl::string_view path
     stream << "}";
 }
 
-void __time_critical_func(SerialADSB::processNewSentence)(const etl::array_view<char>& sentence)
+void __time_critical_func(SerialADSB::processNewSentence)(const etl::array_view<char> &sentence)
 {
     if (!queue.full())
     {

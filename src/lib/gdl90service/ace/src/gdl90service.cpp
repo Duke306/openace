@@ -35,7 +35,9 @@ void Gdl90Service::gdl90ServiceTask(void *arg)
     Gdl90Service *gdl90Service = (Gdl90Service *)arg;
     while (true)
     {
-        uint32_t notifyValue = ulTaskNotifyTake(pdTRUE, TASK_DELAY_MS(1'000));
+        uint32_t notifyValue = 0;
+        xTaskNotifyWait(pdFALSE, ULONG_MAX, &notifyValue, TASK_DELAY_MS(1'000));
+
         if (notifyValue & TaskState::SHUTDOWN)
         {
             vTaskDelete(nullptr);
@@ -114,10 +116,12 @@ void Gdl90Service::on_receive(const GATAS::ConfigUpdatedMsg &msg)
     if (msg.moduleName == Configuration::NAME)
     {
         const Configuration &config = msg.config;
-        auto current = config.gaTasConfig();
-        auto ownCallSign = config.getCallSignFromHex(current.conspicuity.icaoAddress);
-        SPINLOCK_GUARD(CoreUtils::sharedSpinLock());
-        ownshipCallsign = makeGdlCallsign(ownCallSign);
+        auto gaTasConfig = config.gaTasConfig();
+        auto ownCallSign = config.getCallSignFromHex(gaTasConfig.conspicuity.icaoAddress);
+        if (auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()})
+        {
+            ownshipCallsign = makeGdlCallsign(ownCallSign);
+        }
     }
 }
 
@@ -190,9 +194,9 @@ void Gdl90Service::on_receive(const GATAS::OwnshipPositionMsg &msg)
     // 0:Fix Not Valid 1:GPS fix 2:DGPS SBAS etc.. 3..6:NA
     constexpr float uereDGPS = 2.7f; // Assume a basic UERE of 3 meters
     constexpr float uereGPS = 7.f;   // Assume a basic UERE of 7 meters without DGPS
-    auto uere = gpsFix.fixType == GATAS::GpsFixType::DGPS ? uereDGPS : uereGPS;
-    float hfom = hDop > 0 ? hDop * uere : -1;
-    float hpl = pDop > 0 ? pDop * uere * 2.0f : -1;
+    auto uere = gpsStats.gpsFix.fixType == GATAS::GpsFixType::DGPS ? uereDGPS : uereGPS;
+    float hfom = gpsStats.hDop > 0 ? gpsStats.hDop * uere : -1;
+    float hpl = gpsStats.pDop > 0 ? gpsStats.pDop * uere * 2.0f : -1;
 
     auto nacp = calcNACp(hfom);
     auto nic = calcNIC(hpl);
@@ -226,13 +230,13 @@ void Gdl90Service::on_receive(const GATAS::OwnshipPositionMsg &msg)
         statistics.ownEncodingFailureErr += 1;
     }
 
-    if (gpsFix.hasFix)
+    if (gpsStats.gpsFix.hasFix)
     {
         // TODO: Low priority, to validate:
         // Set warning if vertical position accuracy, a bit of a estimate right now, based on not SBAS/WAAS
         // Note to Self, pDOP ==3 is around 20m..30m
         // Note to Self, pDOP ==4 is around 30m..40m
-        bool vertical_warning = pDop > 3.0f;
+        bool vertical_warning = gpsStats.pDop > 3.0f;
         constexpr float vertical_figure_of_merit_f = 10.f * M_TO_FT;
         uint32_t vertical_figure_of_merit;
         uint32_t geo_altitude;
@@ -251,9 +255,7 @@ void Gdl90Service::on_receive(const GATAS::OwnshipPositionMsg &msg)
 
 void Gdl90Service::on_receive(const GATAS::GpsStatsMsg &msg)
 {
-    gpsFix = msg.gpsFix;
-    pDop = msg.pDop;
-    hDop = msg.hDop;
+    gpsStats = msg.gpsStats;
 }
 
 GDL90::NACP Gdl90Service::calcNACp(float hfomMeters)
@@ -319,7 +321,7 @@ GDL90::NIC Gdl90Service::calcNIC(float hplMeters)
     return GDL90::NIC::UNKNOWN;
 }
 
-void Gdl90Service::on_receive(const GATAS::TrackedAircraftPositionMsg &msg)
+void Gdl90Service::on_receive(const GATAS::EgressAircraftPositionMsg &msg)
 {
     const GATAS::AircraftPositionInfo &pos = msg.position;
 
@@ -337,7 +339,7 @@ void Gdl90Service::on_receive(const GATAS::TrackedAircraftPositionMsg &msg)
     gdl90.altitude_encode(altitude, (pos.ellipseHeight - ownshipGeoidSeparation) * M_TO_FT);
     gdl90.horizontal_velocity_encode(horiz_velocity, pos.groundSpeed * MS_TO_KN);
     gdl90.vertical_velocity_encode(vert_velocity, pos.verticalSpeed * MS_TO_FTPMIN);
-    gdl90.track_hdg_encode(track_hdg, pos.course);
+    gdl90.track_hdg_encode(track_hdg, pos.track);
     GDL90::ADDR_TYPE type = pos.addressType == GATAS::AddressType::ICAO ? GDL90::ADDR_TYPE::ADSB_WITH_ICAO_ADDR : GDL90::ADDR_TYPE::ADSB_WITH_SELF_ADDR;
 
     GDL90::RawBytes unpacked;
@@ -385,7 +387,7 @@ void Gdl90Service::sendHeartBeat(Gdl90Service &gdl90Service)
                       /* GDL90::HEARTBEAT_STATUS_ADDR_TYPE_MASK | */
                       /* GDL90::HEARTBEAT_STATUS_IDENT_MASK | */
                       /* GDL90::HEARTBEAT_STATUS_MAINT_REQD_MASK | */ /* Can be used to indicate device is not good*/
-                      (gpsFix.hasFix ? GDL90::HEARTBEAT_STATUS_GPS_POS_VALID_MASK : 0) |
+                      (gpsStats.gpsFix.hasFix ? GDL90::HEARTBEAT_STATUS_GPS_POS_VALID_MASK : 0) |
                       /* GDL90::HEARTBEAT_STATUS_UAT_OK_MASK | */
                       /* GDL90::HEARTBEAT_STATUS_CSA_NOT_AVAIL_MASK | */
                       /* GDL90::HEARTBEAT_STATUS_CSA_REQUESTED_MASK*/
@@ -407,7 +409,7 @@ void Gdl90Service::sendHeartBeat(Gdl90Service &gdl90Service)
 
     // Send ForeFLight heartbeat
     // https://www.foreflight.com/connect/spec/
-    if (gdl90Service.gdl90.foreflight_id_encode(unpacked, 0xace000ace, "GA/TAS", "GA/TAS Conspcty", 0b00)) // Bit 0set to 0 Capability WGS-84 ellipsoid bit 1/2 to 0 for unlimited internet
+    if (gdl90Service.gdl90.foreflight_id_encode(unpacked, 0xace000ace, "GATAS", "GATAS Conspcty", 0b00)) // Bit 0set to 0 Capability WGS-84 ellipsoid bit 1/2 to 0 for unlimited internet
     {
         gdl90Service.packAndSend(unpacked);
         gdl90Service.statistics.heartbeatTx += 1;

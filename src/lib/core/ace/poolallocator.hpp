@@ -11,34 +11,94 @@
 #include <cstring>
 
 template <typename Pool, typename T>
-class PoolReleaseGuard
+class PoolOwnedPtr
 {
 public:
-    PoolReleaseGuard(Pool &pool, T *&ptr)
-        : pool_(&pool), ptr_(&ptr)
+    PoolOwnedPtr() = default;
+
+    PoolOwnedPtr(Pool &pool, T *ptr) : pool_(&pool), ptr_(ptr)
     {
     }
 
-    ~PoolReleaseGuard()
+    ~PoolOwnedPtr()
     {
-        if (ptr_ && *ptr_)
+        reset();
+    }
+
+    PoolOwnedPtr(const PoolOwnedPtr &) = delete;
+    PoolOwnedPtr &operator=(const PoolOwnedPtr &) = delete;
+
+    PoolOwnedPtr(PoolOwnedPtr &&other) noexcept : pool_(other.pool_), ptr_(other.ptr_)
+    {
+        other.pool_ = nullptr;
+        other.ptr_ = nullptr;
+    }
+
+    PoolOwnedPtr &operator=(PoolOwnedPtr &&other) noexcept
+    {
+        if (this != &other)
         {
-            pool_->release(*ptr_);
-            *ptr_ = nullptr; // poison the original owner
+            reset();
+            pool_ = other.pool_;
+            ptr_ = other.ptr_;
+            other.pool_ = nullptr;
+            other.ptr_ = nullptr;
         }
+        return *this;
     }
 
-    void disarm()
+    void reset(T *newPtr = nullptr)
     {
-        ptr_ = nullptr; // stops destructor from touching anything
+        if (ptr_ && pool_)
+        {
+            pool_->release(ptr_);
+        }
+
+        ptr_ = newPtr;
     }
 
-    PoolReleaseGuard(const PoolReleaseGuard &) = delete;
-    PoolReleaseGuard &operator=(const PoolReleaseGuard &) = delete;
+    void adopt(Pool &pool, T *ptr)
+    {
+        reset();
+        pool_ = &pool;
+        ptr_ = ptr;
+    }
+
+    T *detach() const
+    {
+        T *ptr = ptr_;
+        ptr_ = nullptr;
+        return ptr;
+    }
+
+    T *get() const
+    {
+        return ptr_;
+    }
+
+    operator T *() const
+    {
+        return ptr_;
+    }
+
+    T &operator*() const
+    {
+        return *ptr_;
+    }
+
+    T *operator->() const
+    {
+        return ptr_;
+    }
+
+    explicit operator bool() const
+    {
+        return ptr_ != nullptr;
+    }
 
 private:
-    Pool *pool_;
-    T **ptr_;
+    mutable Pool *pool_ = nullptr;
+    mutable T *ptr_ = nullptr;
 };
 
 // Pool specification
@@ -133,11 +193,13 @@ public:
 
     void release(const void *ptr)
     {
+// Added to enable testing of the class
 #if UINTPTR_MAX == 0xFFFFFFFF
         auto masked_ptr = reinterpret_cast<void *>(reinterpret_cast<const uintptr_t>(ptr) & ~0x3U);
 #else
-        auto masked_ptr = ptr;
+        auto masked_ptr = const_cast<void*>(ptr);
 #endif
+        SemaphoreGuard lock(portMAX_DELAY, mutex);
         release_impl<0>(masked_ptr);
     }
 
@@ -159,116 +221,6 @@ public:
         SemaphoreGuard lock(portMAX_DELAY, mutex);
         return etl::get<I>(pools).owns(ptr);
     }
-
-    // Note to self: problem with the unique_ptr is that we need to change the wrapping objects also to unique_ptr
-    // If we do that, we need a pool for that so we can just move pointers around. In the prvious refactor that was to large
-    // to handle
-
-    // struct NoopDeleter
-    // {
-    //     template <typename T>
-    //     void operator()(T *) const noexcept {}
-    // };
-
-    // template <typename T = uint8_t>
-    // using PoolUniquePtr = std::unique_ptr<T, NoopDeleter>;
-
-    // template <typename T = uint8_t>
-    // constexpr PoolUniquePtr<T> make_null_pool_ptr()
-    // {
-    //     return PoolUniquePtr<T>(nullptr, NoopDeleter{});
-    // }
-
-    // template <typename T = uint8_t>
-    // PoolUniquePtr<T> unique_alloc(size_t size)
-    // {
-    //     void *raw = alloc(size);
-    //     if (!raw)
-    //     {
-    //         return PoolUniquePtr<T>(nullptr, +[](T *) {});
-    //     }
-
-    //     return PoolUniquePtr<T>(
-    //         static_cast<T *>(raw),
-    //         +[this](T *p)
-    //         {
-    //             this.release(p);
-    //         });
-    // }
-
-    // template <typename T = uint8_t>
-    // PoolUniquePtr<T> unique_realloc(PoolUniquePtr<T> &uptr, size_t newSize)
-    // {
-    //     // If the current pointer is null, just allocate a new block
-    //     if (!uptr)
-    //     {
-    //         void *raw = alloc(newSize);
-    //         if (!raw)
-    //         {
-    //             return PoolUniquePtr<T>(nullptr, +[](T *) {});
-    //         }
-
-    //         return PoolUniquePtr<T>(
-    //             static_cast<T *>(raw),
-    //             +[this](T *p)
-    //             { this->release(p); });
-    //     }
-
-    //     // realloc the existing block
-    //     void *newPtr = realloc(uptr.get(), newSize);
-    //     if (!newPtr)
-    //     {
-    //         return PoolUniquePtr<T>(nullptr, +[](T *) {});
-    //     }
-
-    //     // release the old pointer (automatic via uptr reset)
-    //     uptr.release(); // release ownership, we now manage newPtr
-
-    //     return PoolUniquePtr<T>(
-    //         static_cast<T *>(newPtr),
-    //         +[this](T *p)
-    //         { this->release(p); });
-    // }
-
-    // template <typename T = uint8_t>
-    // PoolUniquePtr<T> wrap_unique(T *ptr)
-    // {
-    //     if (!ptr)
-    //     {
-    //         return PoolUniquePtr<T>(nullptr, +[](T *) {});
-    //     }
-
-    //     // This is a serious bug: wrapping memory not owned by this allocator
-    //     GATAS_ASSERT(owns_pool(ptr), "Attempting to wrap pointer not owned by any pool");
-
-    //     return PoolUniquePtr<T>(
-    //         ptr,
-    //         +[this](T *p)
-    //         {
-    //             this->release(p);
-    //         });
-    // }
-
-    // Note to self:
-    // Problem with teh shared_ptr is that it consumes quite a bit of memopry compared to the data it is managing
-    // template <typename T = uint8_t>
-    // std::shared_ptr<T> wrap_shared(T *ptr)
-    // {
-    //     if (!ptr)
-    //     {
-    //         return std::shared_ptr<T>(nullptr, +[](T *) {});
-    //     }
-
-    //     // Assert that pointer is owned by this allocator
-    //     // GATAS_ASSERT(owns_pool(ptr), "Attempting to wrap pointer not owned by any pool");
-
-    //     return std::shared_ptr<T>(
-    //         ptr,
-    //         [this](T *p)
-    //         {
-    //             this->release(p);
-    //         });
-    // }
 
 private:
     template <size_t I>

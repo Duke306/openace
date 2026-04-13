@@ -25,9 +25,11 @@
  * Client that can connect to a host and a port and expect to receive line terminated NMEA Messages
  * Part of this code taken from the example from Raspbery
  */
-class AircraftTracker : public BaseModule, public etl::message_router<AircraftTracker, GATAS::ConfigUpdatedMsg, GATAS::AircraftPositionMsg, GATAS::AircraftPositionsMsg, GATAS::Every5SecMsg>
+class AircraftTracker : public BaseModule, public etl::message_router<AircraftTracker, GATAS::ConfigUpdatedMsg, GATAS::RadioTxPositionRequestMsg, GATAS::IngressAircraftPositionMsg, GATAS::IngressAircraftPositionsMsg, GATAS::Every5SecMsg>
 {
 private:
+    mutable SemaphoreHandle_t trackedAircraftMutex = nullptr;
+
     friend class message_router;
 
     static constexpr uint8_t MAX_TRACKING_PLANES = 32;
@@ -53,44 +55,55 @@ private:
         }
     };
 
-    TaskHandle_t taskHandle;
+    struct Tx_Struct
+    {
+        GATAS::RadioParameters radioParameters;
+        uint8_t radioNo;
+    };
+
+    TaskHandle_t taskHandle = nullptr;
     TrackerData<MAX_TRACKING_PLANES, TIMESLICES> trackedAircraft;
     GATAS::AircraftAddress ownshipAddress;
+    bool groundStation_ = false;
 
     // Producer Consumer queue to handle data between this task and the send task
     etl::queue_spsc_atomic<GATAS::AircraftPositionInfo, 16, etl::memory_model::MEMORY_MODEL_SMALL> queue;
+    etl::queue_spsc_atomic<Tx_Struct, 1, etl::memory_model::MEMORY_MODEL_SMALL> tXqueue;
 
     using ProtocolRadPattern = GATAS::AntennaRadiationPattern<GATAS_STATSCOLLECTOR_NUM_RADIALS>;
     etl::array<ProtocolRadPattern, static_cast<uint8_t>(GATAS::DataSource::_TRANSPROTOCOLS)> antennaRadiationPattern;
 
     enum TaskState : uint32_t
     {
-        EXIT = 1 << 0,
         TIMER = 1 << 1,
         NEW = 1 << 2,
-        MAINTAIN = 1 << 3
+        MAINTAIN = 1 << 3,
+        CLOSEST_10 = 1 << 4
     };
 
     void on_receive_unknown(const etl::imessage &msg);
     void on_receive(const GATAS::ConfigUpdatedMsg &msg);
-    void on_receive(const GATAS::AircraftPositionMsg &msg);
-    void on_receive(const GATAS::AircraftPositionsMsg &msg);
+    void on_receive(const GATAS::IngressAircraftPositionMsg &msg);
+    void on_receive(const GATAS::IngressAircraftPositionsMsg &msg);
+    void on_receive(const GATAS::RadioTxPositionRequestMsg &msg);
     void on_receive(const GATAS::Every5SecMsg &msg);
     static void aircraftTrackerTrampoline(void *arg);
-     void aircraftTrackerTask(void *arg);
+    void aircraftTrackerTask(void *arg);
     void handleNew();
     void sendEligibleAircraft();
+    void closest10();
+
     void maintenance();
 
-    void handleTrackedAircraft(const GATAS::AircraftPositionInfo &position)
+    void handleTrackedAircraft(const GATAS::AircraftPositionInfo &position);
+    SemaphoreGuard<> lockTrackedAircraft(uint32_t waitMs = portMAX_DELAY) const
     {
-        getBus().receive(GATAS::TrackedAircraftPositionMsg(position));
+        return SemaphoreGuard<>(waitMs, trackedAircraftMutex);
     }
 
 public:
     static constexpr const etl::string_view NAME = "AircraftTracker";
-    AircraftTracker(etl::imessage_bus &bus, const Configuration &config) : BaseModule(bus, NAME),
-                                                                           taskHandle(nullptr)
+    AircraftTracker(etl::imessage_bus &bus, const Configuration &config) : BaseModule(bus, NAME)
     {
         on_receive(GATAS::ConfigUpdatedMsg{config, Configuration::NAME});
     }

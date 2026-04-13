@@ -13,6 +13,7 @@ typedef void (* TimerCallbackFunction_t)( void * );
 #define UBaseType_t uint32_t
 #define pdPASS 0
 #define pdFALSE 0
+#define pdFAIL 0
 #define pdTRUE 1
 #define StaticTask_t int
 #define StackType_t uint8_t
@@ -39,4 +40,6 @@ typedef enum
 
 #define taskENTER_CRITICAL_FROM_ISR() (0)
 #define taskEXIT_CRITICAL_FROM_ISR(saved) ((void)(saved))
+#define taskENTER_CRITICAL() ((void)0)
+#define taskEXIT_CRITICAL() ((void)0)
 #define portMAX_DELAY              ( TickType_t ) 0xffffffffUL
