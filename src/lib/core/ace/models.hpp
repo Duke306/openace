@@ -1,6 +1,7 @@
 #pragma once
 
 #include "constants.hpp"
+#include "poolallocator.hpp"
 
 // #include "etl/string.h"
 //  #include "etl/map.h"
@@ -201,8 +202,8 @@ namespace GATAS
         ADSLO_HDR = 2,
         FANET = 3,
         OGN1 = 4,
-        PAW = 5,
-        ADSB = 6,
+        _RADIO = 5, // ANything beflore Radio can only be received over hardware
+        ADSB = 5,
         _TRANSPROTOCOLS = 6, // Indicate maximum RADIO that can be received over low power (868MHZ etc..) used to limit array sizes
         ADSLFLARM = 253,     // Combination of ADSL/FLARM, not an acutal protocol but needed for RX of multiple protocols
         ADSLOGN = 254,       // Combination of ADSL/OGN, not an acutal protocol but needed for RX of multiple protocols
@@ -215,45 +216,38 @@ namespace GATAS
     const char *toString(DataSource ds);
     DataSource stringToDataSource(const char *str);
 
-    // Values from https://en.wikipedia.org/wiki/Dilution_of_precision_(navigation)
-    enum class pDopInterpretation : uint8_t
-    {
-        IDEAL = 0,     // .. 1
-        EXCELLENT = 1, // .. 2
-        GOOD = 2,      // ..5
-        MODERATE = 5,  // ..10
-        FAIR = 10,     // .. 20
-        POOR = 21      // > 20
-    };
-
-    const char *DOPInterpretationToString(pDopInterpretation value);
-
-    pDopInterpretation floatToDOPInterpretation(float dop);
-
-    struct GpsFixType
+    struct DataSourceMode
     {
         enum enum_type : uint8_t
         {
-            NO_FIX = 1,
-            D2 = 2,
-            D3 = 3,
-            DGPS = 4,
+            RX = 1,
+            TX = 2,
+            RX_TX = 3
         };
 
-        ETL_DECLARE_ENUM_TYPE(GpsFixType, uint8_t)
-        ETL_ENUM_TYPE(NO_FIX, "No Fix")
-        ETL_ENUM_TYPE(D2, "2D")
-        ETL_ENUM_TYPE(D3, "3D")
-        ETL_ENUM_TYPE(DGPS, "DGPS")
+        ETL_DECLARE_ENUM_TYPE(DataSourceMode, uint8_t)
+        ETL_ENUM_TYPE(RX, "RX")
+        ETL_ENUM_TYPE(TX, "TX")
+        ETL_ENUM_TYPE(RX_TX, "RX_TX")
         ETL_END_ENUM_TYPE
     };
 
-    struct GpsFix
+    DataSourceMode stringToDataSourceMode(const char *str);
+
+    struct DataSourceConfig
     {
-        GpsFixType fixType;
-        bool hasFix;
-        GpsFix() : fixType(GpsFixType::NO_FIX), hasFix(false) {}
-        GpsFix(GpsFixType fix_) : fixType(fix_), hasFix(fix_ == GpsFixType::D3 || fix_ == GpsFixType::DGPS) {}
+        DataSource dataSource;
+        DataSourceMode mode;
+
+        bool isRx() const
+        {
+            return (mode == DataSourceMode::RX || mode == DataSourceMode::RX_TX);
+        }
+
+        bool isTx() const
+        {
+            return (mode == DataSourceMode::TX || mode == DataSourceMode::RX_TX);
+        }
     };
 
     /**
@@ -277,7 +271,7 @@ namespace GATAS
         int16_t ellipseHeight; // Altitude above the GeoId (MSL) in meters. For aircraft where altitude is based from BARO, this is an estimate
         float verticalSpeed;   // in m/s
         float groundSpeed;     // in m/s
-        int16_t course;        // 0..359
+        int16_t track;         // 0..359
         float hTurnRate;       // deg/s Turn rate in the horizontal plane
 
         // These can be used by received to understand where the target is relative to ownship
@@ -287,12 +281,12 @@ namespace GATAS
         // TODO: Add relative vertical?
         //        int16_t bearingFromOwn;   // Bearing to ownship in degrees, currently only used in AntennaRadiationPattern?
 
-        AircraftPositionInfo(uint32_t timestamp_, GATAS::CallSign callSign_, AircraftAddress address_, AddressType addressType_, DataSource dataSource_, AircraftCategory aircraftType_, bool stealth_, bool noTrack_, bool airborne_, float lat_, float lon_, int32_t ellipseHeight_, float verticalSpeed_, float groundSpeed_, int16_t course_, float hTurnRate_, uint32_t distanceFromOwn_, int32_t relNorth_, int32_t relEast_ /*, int16_t bearingFromOwn_*/)
-            : timestamp(timestamp_), callSign(callSign_), address(address_), addressType(addressType_), dataSource(dataSource_), aircraftType(aircraftType_), stealth(stealth_), noTrack(noTrack_), airborne(airborne_), lat(lat_), lon(lon_), ellipseHeight(ellipseHeight_), verticalSpeed(verticalSpeed_), groundSpeed(groundSpeed_), course(course_), hTurnRate(hTurnRate_), distanceFromOwn(distanceFromOwn_), relNorthFromOwn(relNorth_), relEastFromOwn(relEast_) // , bearingFromOwn(bearingFromOwn_)
+        AircraftPositionInfo(uint32_t timestamp_, GATAS::CallSign callSign_, AircraftAddress address_, AddressType addressType_, DataSource dataSource_, AircraftCategory aircraftType_, bool stealth_, bool noTrack_, bool airborne_, float lat_, float lon_, int32_t ellipseHeight_, float verticalSpeed_, float groundSpeed_, int16_t track_, float hTurnRate_, uint32_t distanceFromOwn_, int32_t relNorth_, int32_t relEast_ /*, int16_t bearingFromOwn_*/)
+            : timestamp(timestamp_), callSign(callSign_), address(address_), addressType(addressType_), dataSource(dataSource_), aircraftType(aircraftType_), stealth(stealth_), noTrack(noTrack_), airborne(airborne_), lat(lat_), lon(lon_), ellipseHeight(ellipseHeight_), verticalSpeed(verticalSpeed_), groundSpeed(groundSpeed_), track(track_), hTurnRate(hTurnRate_), distanceFromOwn(distanceFromOwn_), relNorthFromOwn(relNorth_), relEastFromOwn(relEast_) // , bearingFromOwn(bearingFromOwn_)
         {
         }
         // Default constructor
-        AircraftPositionInfo() : timestamp(0), callSign(""), address(0), addressType(AddressType::RANDOM), dataSource(DataSource::NONE), aircraftType(AircraftCategory::UNKNOWN), stealth(false), noTrack(false), airborne(false), lat(0), lon(0), ellipseHeight(0), verticalSpeed(0), groundSpeed(0), course(0), hTurnRate(0), distanceFromOwn(INT32_MIN), relNorthFromOwn(INT32_MIN), relEastFromOwn(INT32_MIN) // , bearingFromOwn(INT16_MIN)
+        AircraftPositionInfo() : timestamp(0), callSign(""), address(0), addressType(AddressType::RANDOM), dataSource(DataSource::NONE), aircraftType(AircraftCategory::UNKNOWN), stealth(false), noTrack(false), airborne(false), lat(0), lon(0), ellipseHeight(0), verticalSpeed(0), groundSpeed(0), track(0), hTurnRate(0), distanceFromOwn(INT32_MIN), relNorthFromOwn(INT32_MIN), relEastFromOwn(INT32_MIN) // , bearingFromOwn(INT16_MIN)
         {
         }
 
@@ -310,6 +304,8 @@ namespace GATAS
             AddressType addressType;
             bool stealth;
             bool noTrack;
+            bool groundStation;
+            int16_t heightAboveGps = 0;
         };
 
         /**
@@ -318,7 +314,7 @@ namespace GATAS
         struct GaTasConfiguration
         {
             Conspicuity conspicuity;
-            etl::vector<GATAS::DataSource, static_cast<uint8_t>(GATAS::DataSource::_TRANSPROTOCOLS)> protocols;
+            etl::vector<GATAS::DataSourceConfig, static_cast<uint8_t>(GATAS::DataSource::_TRANSPROTOCOLS)> protocols;
             etl::vector<uint32_t, GATAS::MAX_AIRCRAFT_CONFIG> allIcaoAddresses; // List of all configured hex codes of all aircraft
         };
 
@@ -435,13 +431,13 @@ namespace GATAS
 
     struct LinkLayerConfig
     {
-        uint8_t pcId;                     // Internally used to opnise tranceiver state
-        GATAS::DataSource __dataSource;   // Data source
-        bool manchester;                  // True when data is manchester encoded
-        uint8_t packetLength;             // Total packet length including CRC, but when left to zero. THe protocol send the packet length
-        uint8_t txPreambleLength;         // Preamble length in bits during transmission
-        uint8_t syncLength;               // Length of the sync word in bytes
-        uint8_t syncSkipInRxLength;       // When setting the receiver, skip n bytes from the sync
+        uint8_t pcId;                    // Internally used to opnise tranceiver state
+        GATAS::DataSource __dataSource;  // Data source
+        bool manchester;                 // True when data is manchester encoded
+        uint8_t packetLength;            // Total packet length including CRC, but when left to zero. THe protocol send the packet length
+        uint8_t txPreambleLength;        // Preamble length in bits during transmission
+        uint8_t syncLength;              // Length of the sync word in bytes
+        uint8_t syncSkipInRxLength;      // When setting the receiver, skip n bytes from the sync
         etl::array<uint8_t, 8> syncWord; // Sync word for RX/TX depending on the mode we only take portion or full sync
 
         constexpr GATAS::DataSource dataSource() const
@@ -479,23 +475,26 @@ namespace GATAS
 
     struct RadioParameters
     {
-        static constexpr GATAS::RfConfig DEFAULT     {GATAS::Modulation::GFSK, 868'200'000, 200'000, 14, 234300, 100000, 50000,  5}; // 868.2 / 868.4
+        static constexpr GATAS::RfConfig DEFAULT{GATAS::Modulation::GFSK, 868'200'000, 200'000, 14, 234300, 100000, 50000, 5}; // 868.2 / 868.4
 
         const GATAS::LinkLayerConfig *config = nullptr;
         const GATAS::RfConfig *frequency = &DEFAULT;
         uint32_t hopFrequency = 0;
+        uint8_t id;
         uint8_t codingRate = 0;
 
         constexpr RadioParameters(const GATAS::LinkLayerConfig *config_,
                                   const GATAS::RfConfig *frequency_,
-                                  uint32_t hopFrequency_)
-            : config(config_), frequency(frequency_), hopFrequency(hopFrequency_), codingRate(0) {}
+                                  uint32_t hopFrequency_,
+                                  uint8_t id_)
+            : config(config_), frequency(frequency_), hopFrequency(hopFrequency_), id(id_), codingRate(0) {}
 
         constexpr RadioParameters(const GATAS::LinkLayerConfig *config_,
                                   const GATAS::RfConfig *frequency_,
                                   uint32_t hopFrequency_,
+                                  uint8_t id_,
                                   uint8_t codingRate_)
-            : config(config_), frequency(frequency_), hopFrequency(hopFrequency_), codingRate(codingRate_) {}
+            : config(config_), frequency(frequency_), hopFrequency(hopFrequency_), id(id_), codingRate(codingRate_) {}
 
         RadioParameters() : config(nullptr), frequency(nullptr), hopFrequency(0), codingRate(8) {}
     };
@@ -509,14 +508,14 @@ namespace GATAS
         uint32_t epochSeconds;
         uint32_t frequency;
         const GATAS::LinkLayerConfig *config;
-        uint8_t *frame;
+        PoolOwnedPtr<GATAS::GlobalPoolConfiguration, uint8_t> frame;
         size_t length; // Length of the data frame in bytes
         int8_t rssidBm;
     };
 
     /**
      * Binry store is used to store occasionaly data that does not require user modification
-     * Usually hardware status and performance. Used in teh configuration class to store the 
+     * Usually hardware status and performance. Used in teh configuration class to store the
      * unique GATAS ID and a magic to check if the flash needs to be reset
      * Other valueas could be added that could be of intereset during lifetime of the project
      */
@@ -529,6 +528,62 @@ namespace GATAS
         // This is used to beable to show a website to the user uniqely without
         // other hijacking it's configuration. THis is not used to track the user.
         uint64_t gatasId;
+    };
+
+    // Values from https://en.wikipedia.org/wiki/Dilution_of_precision_(navigation)
+    enum class pDopInterpretation : uint8_t
+    {
+        IDEAL = 0,     // .. 1
+        EXCELLENT = 1, // .. 2
+        GOOD = 2,      // ..5
+        MODERATE = 5,  // ..10
+        FAIR = 10,     // .. 20
+        POOR = 21      // > 20
+    };
+
+    const char *DOPInterpretationToString(pDopInterpretation value);
+
+    pDopInterpretation floatToDOPInterpretation(float dop);
+
+    struct GpsFixType
+    {
+        enum enum_type : uint8_t
+        {
+            NO_FIX = 1,
+            D2 = 2,
+            D3 = 3,
+            DGPS = 4,
+        };
+
+        ETL_DECLARE_ENUM_TYPE(GpsFixType, uint8_t)
+        ETL_ENUM_TYPE(NO_FIX, "No Fix")
+        ETL_ENUM_TYPE(D2, "2D")
+        ETL_ENUM_TYPE(D3, "3D")
+        ETL_ENUM_TYPE(DGPS, "DGPS")
+        ETL_END_ENUM_TYPE
+    };
+
+    struct GpsFix
+    {
+        GpsFixType fixType;
+        bool hasFix;
+        GpsFix() : fixType(GpsFixType::NO_FIX), hasFix(false) {}
+        GpsFix(GpsFixType fix_) : fixType(fix_), hasFix(fix_ == GpsFixType::D3 || fix_ == GpsFixType::DGPS) {}
+    };
+
+    struct GpsStats
+    {
+        GATAS::GpsFix gpsFix;       // gpsFix, calculated from GPS
+        uint8_t satsUsedForFix = 0; // From GGA Sentence
+        float pDop = 100.f;         // From GSA Sentence
+        float hDop = 100.f;         // From GSA Sentence
+        float vDop = 100.f;         // From GSA Sentence
+    };
+
+    struct BarometricPressure
+    {
+        float pressurehPa;    // Preasure in hPa (hectopascal)
+        uint32_t usSinceBoot; // Time since boot
     };
 
 };

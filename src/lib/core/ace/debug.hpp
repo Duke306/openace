@@ -1,6 +1,5 @@
 #pragma once
 
-
 // 0;30m black      1;30m bold black      0;90m light black
 // 0;31m red        1;31m bold red        0;91m light red
 // 0;32m green      1;32m bold green      0;92m light green
@@ -21,17 +20,17 @@ static constexpr const char *basename(const char *path)
 }
 
 #define GATAS_INFO(fmt, ...) \
-    printf("\033[01;37m (%s:%d) INFO: " fmt "\n", basename(__FILE__), __LINE__, ##__VA_ARGS__)
+    printf("\033[01;32m (%s:%d) INFO: " fmt "\e[0m\n", basename(__FILE__), __LINE__, ##__VA_ARGS__)
 
 #define GATAS_WARN(fmt, ...) \
-    printf("\033[01;33m (%s:%d) WARN: " fmt "\n", basename(__FILE__), __LINE__, ##__VA_ARGS__)
+    printf("\033[01;33m (%s:%d) WARN: " fmt "\e[0m\n", basename(__FILE__), __LINE__, ##__VA_ARGS__)
 
 #define GATAS_LOG_IF(mask, fmt, ...)                                  \
     do                                                                \
     {                                                                 \
         if (GATAS_LOG_ACTIVE_MODULES & (mask))                        \
-            printf("\033[01;30m (%s:%d) INFO: " fmt "\n",                         \
-                   basename(__FILE__), __LINE__, ##__VA_ARGS__);     \
+            printf("\033[01;30m (%s:%d) INFO: " fmt "\e[0m\n",        \
+                   basename(__FILE__), __LINE__, ##__VA_ARGS__);      \
     } while (0)
 
 #define GATAS_ASSERT(cond, fmt, ...)                                  \
@@ -39,8 +38,9 @@ static constexpr const char *basename(const char *path)
     {                                                                 \
         if (!(cond))                                                  \
         {                                                             \
-            printf("\033[01;31m (%s:%d) ASSERT: " fmt "\n",                       \
-                   basename(__FILE__), __LINE__, ##__VA_ARGS__);     \
+            printf("\033[01;31m (%s:%d) ASSERT: " fmt "\e[0m\n",      \
+                   basename(__FILE__), __LINE__, ##__VA_ARGS__);      \
+            vTaskDelay(TASK_DELAY_MS(10));                            \
             panic("Assertion");                                       \
         }                                                             \
     } while (0)
@@ -49,7 +49,7 @@ static constexpr const char *basename(const char *path)
     do                                                                \
     {                                                                 \
         if (!(cond))                                                  \
-            printf("\033[33m VERIFY: %s (%s:%d)\n",                     \
+            printf("\033[33m VERIFY: %s (%s:%d)\e[0m\n",              \
                    msg, basename(__FILE__), __LINE__);                \
     } while (0)
 

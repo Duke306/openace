@@ -2,7 +2,7 @@ import { El } from "@frameable/el";
 import store from "./store";
 import "./moduleconfigs";
 import { isDarkMode } from "./utils";
-import { formatUnit, formatUnit2 } from "./units";
+import { formatUnit, formatUnit2, bitsToDots } from "./units";
 
 const MAX_DISTANCE_IDX = 3;
 const AVG_DISTANCE_IDX = 2;
@@ -34,7 +34,6 @@ class MonitorModule extends El {
 
   mounted() {
     this._running = true;
-    debugger
     this._colorSchema = this._getPolarColorSchema();
     this._fetchData();
   }
@@ -73,23 +72,8 @@ class MonitorModule extends El {
       });
   }
 
-  _chunkString(str, size, sep = "'") {
-    return str.match(new RegExp(`.{1,${size}}`, "g")).join(sep);
-  }
-
   _getPolarColorSchema() {
     return POLAR_COLORS[isDarkMode() ? "DARK" : "LIGHT"];
-  }
-
-  /**
-   * 
-   * @param Take a string of 0 and one, and replace them with big and small dots 
-   * @returns 
-   */
-  _bitsToDots(str) {
-    return str
-      .replace(/1/g, "●")
-      .replace(/0/g, "·");
   }
 
   /**
@@ -266,16 +250,18 @@ class MonitorModule extends El {
 
     if (Array.isArray(value)) {
       value = value.join(", ");
-    } else if (typeof value === "string" && /^[01]+$/.test(value) && value.length >= 10) {
+    } else if (typeof value === "string" && /^[01]+$/.test(value)) {
       isBitString = true;
-      value = this._bitsToDots(this._chunkString(value, 10, "|"));
     } else if (typeof value === "number") {
       isNumeric = true;
     }
 
     // Render monospace for numeric values or bitStrings
     let style = "";
-    if (isNumeric || isBitString) {
+    if (isBitString) {
+      style += "font-family: monospace;font-size: 8px;";
+    }
+    if (isNumeric) {
       style += "font-family: monospace;";
     }
 
@@ -326,6 +312,185 @@ class MonitorModule extends El {
         </td>
       </tr>
     `;
+    }
+
+    if (item.name.endsWith(":aoa")) {
+      const title = item.name.split(':')[0];
+      let aircraft = [];
+
+      if (Array.isArray(item.value)) {
+        aircraft = item.value.map((entry) => ({
+          hex: entry.hex ?? entry.address ?? "UNK",
+          ds: entry.ds ?? entry.datasource ?? entry.dataSource ?? "UNKNOWN",
+          dis: entry.dis ?? entry.distance ?? entry["distance:m"] ?? Number.MAX_SAFE_INTEGER,
+        }));
+      } else if (item.value && typeof item.value === "object") {
+        const hex = item.value.hex ?? [];
+        const ds = item.value.ds ?? [];
+        const dis = item.value.dis ?? [];
+        const len = Math.max(hex.length, ds.length, dis.length);
+        for (let i = 0; i < len; i++) {
+          aircraft.push({
+            hex: hex[i] ?? "UNK",
+            ds: ds[i] ?? "UNKNOWN",
+            dis: dis[i] ?? Number.MAX_SAFE_INTEGER,
+          });
+        }
+      }
+
+      aircraft.sort((a, b) => a.dis - b.dis);
+
+      return html`
+        <tr>
+          <th style="width:33%; vertical-align:top" scope="row">${title}</th>
+          <td>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              ${aircraft.map((aircraft) => {
+        const distance = aircraft.dis ?? "-";
+        const hex = aircraft.hex ?? "UNK";
+        const dataSource = aircraft.ds ?? "UNKNOWN";
+        return html`
+                  <div style="display:grid; grid-template-columns: 50px 50px 50px; gap:12px; align-items:center; font-size:11px; line-height:1.2; padding:2px 0">
+                    <span style="font-family:monospace; font-weight:700;">${hex}</span>
+                    <span style="">${dataSource}</span>
+                    <span style="text-align:left; font-variant-numeric: tabular-nums;">${distance} m</span>
+                  </div>
+                `;
+      })}
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    const dsColorMap = {
+      "OGN": "#cb6827",
+      "Flarm": "#31a84a",
+      "ADSL": "#808cff",
+      "ADSL Hdr": "#596eef",
+      "Fanet": "#674ea7",
+      "ADSB": "#fdce03",
+      "PAW": "#ce1f28",
+      "NOOP": "#555",
+      "ADSL FLARM": "#66bb6a",
+      "ADSL OGN": "#ff9800",
+      "NONE": "#333",
+    };
+
+    if (item.name.endsWith(":rrx") && Array.isArray(item.value)) {
+      const name = item.name.split(':')[0];
+      // entries are pre-expanded flat RxTiming: {ds, s, e, ch} — no wrapping needed
+      const entries = item.value;
+      const SEC = 1000;
+      const barW = 200; // px per 1000ms
+
+      const totalMs = Math.ceil(Math.max(...entries.map((e) => e.e), SEC) / SEC) * SEC;
+      const totalW = (totalMs / SEC) * barW;
+
+
+      const dsColor = (ds) => dsColorMap[ds] || "#888";
+
+      // Render a single bar for one entry
+      const renderBar = (entry) => {
+        const left = (entry.s / totalMs) * totalW;
+        const w = Math.max(1, ((entry.e - entry.s) / totalMs) * totalW);
+        return html`<div style="position:absolute; left:${left}px; text-align:center; width:${w}px; height:100%; background:${dsColor(entry.ds)}; opacity:0.8; border-radius:6px" title="${entry.ds} ch${entry.ch} ${entry.s}-${entry.e}ms">${entry.ch}</div>`;
+      };
+
+      const ticks = Array.from({ length: totalMs / 200 + 1 }, (_, i) => i * 200);
+
+      return html`
+        <tr>
+          <th style="width:33%; vertical-align:top" scope="row">${name}</th>
+          <td>
+            <div style="font-size:11px; line-height:1.6">
+
+              <!-- Schedule: cumulative entries -->
+              <div style="position:relative; width:${totalW}px; height:16px; background:#eee; border-radius:2px">
+                ${entries.map((e) => renderBar(e))}
+              </div>
+
+              <!-- Tick marks -->
+              <div style="position:relative; width:${totalW}px; height:10px; margin-top:2px">
+                ${ticks.map((ms) => {
+        const left = (ms / totalMs) * totalW;
+        const bold = ms % SEC === 0;
+        return html`<span style="position:absolute; left:${left}px; font-size:8px; color:${bold ? '#555' : '#aaa'}; transform:translateX(-50%); font-weight:${bold ? 'bold' : 'normal'}">${ms}</span>`;
+      })}
+              </div>
+
+              <!-- Legend -->
+              <br />
+              <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px">
+                ${[...new Set(entries.map((e) => e.ds))].map((ds) => html`
+                  <span style="display:flex; align-items:center; gap:3px">
+                    <span style="display:inline-block; width:10px; height:10px; background:${dsColor(ds)}; border-radius:2px; opacity:0.8"></span>
+                    <span style="color:#555">${ds}</span>
+                  </span>
+                `)}
+              </div>
+
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    if (item.name.endsWith(":rtx") && Array.isArray(item.value)) {
+      const name = item.name.split(':')[0];
+      const protocols = item.value; // [{ds, slots:[{s,e,ch},...]}]
+      const SEC = 1000;
+      const barW = 200; // px per 1000ms
+
+      const allSlots = protocols.flatMap((p) => p.slots || []);
+      const totalMs = Math.ceil(Math.max(...allSlots.map((s) => s.e), SEC) / SEC) * SEC;
+      const totalW = (totalMs / SEC) * barW;
+
+      const dsColor = (ds) => dsColorMap[ds] || "#888";
+
+      const renderProtocolRow = (proto) => {
+        const color = dsColor(proto.ds);
+        const hasTiming = proto.min != null;
+        const avg = hasTiming ? ((proto.min + proto.max) / 2 / 1000).toFixed(1) : null;
+        return html`
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px">
+            <span style="width:70px; font-size:10px; color:#555; text-align:right; flex-shrink:0">${proto.ds}</span>
+            <div style="position:relative; width:${totalW}px; height:16px; background:#eee; border-radius:2px">
+              ${(proto.slots || []).map((ts) => {
+          const left = (ts.s / totalMs) * totalW;
+          const w = Math.max(1, ((ts.e - ts.s) / totalMs) * totalW);
+          return html`<div style="position:absolute; left:${left}px; text-align:center; width:${w}px; height:100%; background:${color}; opacity:0.8; border-radius:6px" title="${proto.ds} ch${ts.ch} ${ts.s}-${ts.e}ms">${ts.ch}</div>`;
+        })}
+            </div>
+            ${hasTiming ? html`<span style="width:130px; font-size:10px; color:#999; flex-shrink:0">${proto.min}-${proto.max}ms ~${avg}s</span>` : ''}
+          </div>
+        `;
+      };
+
+      const ticks = Array.from({ length: totalMs / 200 + 1 }, (_, i) => i * 200);
+
+      return html`
+        <tr>
+          <th style="width:33%; vertical-align:top" scope="row">${name}</th>
+          <td>
+            <div style="font-size:11px; line-height:1.6">
+              ${protocols.map((p) => renderProtocolRow(p))}
+
+              <!-- Tick marks -->
+              <div style="display:flex; align-items:center; gap:6px">
+                <span style="width:70px; flex-shrink:0"></span>
+                <div style="position:relative; width:${totalW}px; height:10px; margin-top:2px">
+                  ${ticks.map((ms) => {
+        const left = (ms / totalMs) * totalW;
+        const bold = ms % SEC === 0;
+        return html`<span style="position:absolute; left:${left}px; font-size:8px; color:${bold ? '#555' : '#aaa'}; transform:translateX(-50%); font-weight:${bold ? 'bold' : 'normal'}">${ms}</span>`;
+      })}
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
     }
 
     const rendered = this._renderDefault(html, item);

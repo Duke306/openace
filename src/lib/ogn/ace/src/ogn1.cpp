@@ -31,11 +31,7 @@ void Ogn1::getData(etl::string_stream &stream, const etl::string_view path) cons
 {
     (void)path;
     stream << "{";
-    for (const auto &stat : datasourceTimeStats.span())
-    {
-        stream << "\"f" << stat.frequency << "\":\"" << stat.timeTenthMs.to_string() << "\",";
-    }
-
+    datasourceTimeStats.toStream(stream);
     stream << "\"relay\":[";
     for (uint8_t idx = 0; idx < 4; idx++)
     {
@@ -158,7 +154,7 @@ int8_t Ogn1::parseFrame(OGN1_Packet &packet, int16_t rssiDbm)
     int16_t speed0d1ms = packet.DecodeSpeed();
     auto aircrftCat = ognToGatas(static_cast<Ogn1::OGNAircraftType>(packet.Position.AcftType));
     auto groundSpeed = speed0d1ms * .1f;
-    GATAS::AircraftPositionMsg aircraftPosition{
+    GATAS::IngressAircraftPositionMsg aircraftPosition{
         GATAS::AircraftPositionInfo{
             timeUs32,
             "",
@@ -271,6 +267,7 @@ void Ogn1::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
             etl::mem_copy(reinterpret_cast<uint8_t *>(&packet), OGN_PACKET_LENGTH_FEC, data);
 
             getBus().receive(GATAS::RadioTxFrameMsg{
+                getGlobalPool(),
                 msg.radioParameters,
                 data,
                 OGN_PACKET_LENGTH_FEC,
@@ -284,14 +281,11 @@ void Ogn1::on_receive(const GATAS::RadioRxManchesterMsg &msg)
 {
     if (msg.dataSource == GATAS::DataSource::OGN1)
     {
-        PoolReleaseGuard frameGuard{getGlobalPool(), msg.frame};
-        PoolReleaseGuard errorGuard{getGlobalPool(), msg.error};
-
         datasourceTimeStats.addReceiveStat(msg.frequency, CoreUtils::msInSecond());
         OGN1_Packet packet;
 
         // Validate packet, and correct if possible
-        uint8_t check = Ogn1::errorCorrect((uint8_t *)&packet, msg.frame, msg.error);
+        uint8_t check = Ogn1::errorCorrect((uint8_t *)&packet, msg.frame.get(), msg.error.get());
         if (check & 0x0F)
         {
             statistics.fecErr += 1;
@@ -323,12 +317,12 @@ void Ogn1::on_receive(const GATAS::OwnshipPositionMsg &msg)
 
 void Ogn1::on_receive(const GATAS::BarometricPressureMsg &msg)
 {
-    lastBarometricPressureMsg = msg;
+    lastBarometricPressure = msg.barometricPressure;
 }
 
 void Ogn1::on_receive(const GATAS::GpsStatsMsg &msg)
 {
-    gpsStats = msg;
+    gpsStats = msg.gpsStats;
 }
 
 void Ogn1::on_receive_unknown(const etl::imessage &msg)

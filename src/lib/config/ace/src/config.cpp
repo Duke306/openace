@@ -351,7 +351,6 @@ const GATAS::Config::GaTasConfiguration Config::gaTasConfig() const
     JsonObjectConst aircraftConfig = doc["aircraft"][aircraftId];
 
     // Default if no aircraft config was found
-    etl::vector<GATAS::DataSource, static_cast<uint8_t>(GATAS::DataSource::_TRANSPROTOCOLS)> protocols;
     if (aircraftConfig.isNull())
     {
         return {
@@ -360,23 +359,64 @@ const GATAS::Config::GaTasConfiguration Config::gaTasConfig() const
                 .category = GATAS::AircraftCategory::LIGHT,
                 .addressType = GATAS::AddressType::ADSL,
                 .stealth = false,
-                .noTrack = false},
-            .protocols = protocols,
+                .noTrack = false,
+                .groundStation = false,
+                .heightAboveGps = 0},
+            .protocols = {},
             .allIcaoAddresses = {}};
     }
 
-    for (auto protocol : aircraftConfig["protocols"].as<JsonArrayConst>())
+    etl::vector<GATAS::DataSourceConfig, static_cast<uint8_t>(GATAS::DataSource::_TRANSPROTOCOLS)> protocols;
+    auto appendProtocol = [&](GATAS::DataSource dataSource, GATAS::DataSourceMode mode)
     {
-        if (!protocols.full())
+        if (dataSource == GATAS::DataSource::NONE || protocols.full())
         {
-            auto dataSource = GATAS::stringToDataSource(protocol.as<const char *>());
-            if (dataSource != GATAS::DataSource::NONE) {
-                protocols.push_back(dataSource);            
-                // ADSLM implies ADSLO_HDR
-                if (dataSource == GATAS::DataSource::ADSLM) {
-                    protocols.push_back(GATAS::DataSource::ADSLO_HDR);                            
+            return;
+        }
+
+        protocols.push_back({dataSource, mode});
+
+        // Legacy configs expect ADSL to enable the header protocol as well.
+        if (dataSource == GATAS::DataSource::ADSLM && !protocols.full())
+        {
+            protocols.push_back({GATAS::DataSource::ADSLO_HDR, mode});
+        }
+    };
+
+    for (JsonVariantConst protocol : aircraftConfig["protocols"].as<JsonArrayConst>())
+    {
+        if (protocol.is<const char *>())
+        {
+            // Backwards compatibility: old format is an array of protocol names.
+            appendProtocol(GATAS::stringToDataSource(protocol.as<const char *>()), GATAS::DataSourceMode::RX_TX);
+            continue;
+        }
+
+        if (!protocol.is<JsonObjectConst>())
+        {
+            continue;
+        }
+
+        for (JsonPairConst protocolEntry : protocol.as<JsonObjectConst>())
+        {
+            auto dataSource = GATAS::stringToDataSource(protocolEntry.key().c_str());
+            if (dataSource == GATAS::DataSource::NONE)
+            {
+                continue;
+            }
+
+            GATAS::DataSourceMode mode = GATAS::DataSourceMode::RX_TX;
+            JsonObjectConst protocolConfig = protocolEntry.value().as<JsonObjectConst>();
+            if (!protocolConfig.isNull())
+            {
+                auto modeStr = protocolConfig["mode"].as<const char *>();
+                if (modeStr != nullptr)
+                {
+                    mode = GATAS::stringToDataSourceMode(modeStr);
                 }
             }
+
+            appendProtocol(dataSource, mode);
         }
     }
 
@@ -391,6 +431,8 @@ const GATAS::Config::GaTasConfiguration Config::gaTasConfig() const
         }
     }
 
+    bool groundStation = aircraftConfig["groundStation"];
+    int16_t hag = etl::clamp(static_cast<int16_t>(aircraftConfig["heightAboveGps"]), static_cast<int16_t>(0), static_cast<int16_t>(1500));
     return {
         .conspicuity = {
             .icaoAddress = aircraftConfig["address"],
@@ -398,6 +440,8 @@ const GATAS::Config::GaTasConfiguration Config::gaTasConfig() const
             .addressType = GATAS::stringToAddressType((ccharptr)aircraftConfig["addressType"]),
             .stealth = aircraftConfig["stealth"],
             .noTrack = aircraftConfig["noTrack"],
+            .groundStation = groundStation,
+            .heightAboveGps = groundStation ? hag : static_cast<int16_t>(0),
         },
         .protocols = protocols,
         .allIcaoAddresses = allIcaoAddresses};

@@ -34,7 +34,7 @@ void DataPort::on_receive(const GATAS::OwnshipPositionMsg &msg)
     // }
 }
 
-void DataPort::on_receive(const GATAS::TrackedAircraftPositionMsg &msg)
+void DataPort::on_receive(const GATAS::EgressAircraftPositionMsg &msg)
 {
     sendPFLAA(msg.position);
 }
@@ -44,6 +44,7 @@ void DataPort::on_receive(const GATAS::GPSSentenceMsg &msg)
     GATAS::NMEAString sentence = msg.sentence;
 
     // Check the message type at position 3–5
+    // Drop specific GPS sentences
     char type[4] = {sentence[4], sentence[5], '\0'};
     if (etl::string_view(type) == "SV")
     {
@@ -88,7 +89,7 @@ void DataPort::sendPFLAA(const GATAS::AircraftPositionInfo &position)
            << getPFLAAAddressType(position.addressType) << CO;               // ID Type
     CoreUtils::streamIcaoAddress(stream, position.address, position.addressType, position.callSign);
     stream << CO                                       // HEXCode example 484FB3!PH-DHA
-           << position.course << CO                    // Track
+           << position.track << CO                    // Track
            << CO                                       // TurnRate kept empty
            << groundSpeed << CO                        // Ground Speed
            << climbRate << CO                          // Climb Rate
@@ -157,7 +158,7 @@ etl::string_view DataPort::getPFLAAAircraftCategory(const GATAS::AircraftPositio
 {
     // clang-format off
     switch (position.aircraftType) {
-        case GATAS::AircraftCategory::GLIDER: return "1"; 
+        case GATAS::AircraftCategory::GLIDER: return "1";
         case GATAS::AircraftCategory::ROTORCRAFT:
         case GATAS::AircraftCategory::GYROCOPTER: return "3";
         case GATAS::AircraftCategory::SKY_DIVER: return "4";
@@ -180,7 +181,7 @@ etl::string_view DataPort::getPFLAAAircraftCategory(const GATAS::AircraftPositio
         case GATAS::AircraftCategory::LINE_OBSTACLE:
         case GATAS::AircraftCategory::CLUSTER_OBSTACLE: return "F";
         case GATAS::AircraftCategory::SURFACE_EMERGENCY_VEHICLE:
-        case GATAS::AircraftCategory::SURFACE_VEHICLE: 
+        case GATAS::AircraftCategory::SURFACE_VEHICLE:
         default: return "A"; // reserved
     }
     // clang-format on

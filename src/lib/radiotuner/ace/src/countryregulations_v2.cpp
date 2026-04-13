@@ -34,17 +34,31 @@ CountryRegulations::Zone CountryRegulations::zone(float lat, float lon)
 }
 
 // New simplified methods
-const CountryRegulations::ProtocolTxTimeSlot &CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone zone, GATAS::DataSource dataSource)
+etl::span<const CountryRegulations::ProtocolTxTimeSlot> CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone zone, GATAS::DataSource dataSource)
 {
+    size_t start = protocolTxTimimgs.size();
+    size_t count = 0;
     for (size_t i = 0; i < protocolTxTimimgs.size(); ++i)
     {
         const auto &slot = protocolTxTimimgs[i];
         if (slot.radioConfig.isTxDataSource(dataSource) && slot.zone == zone)
         {
-            return protocolTxTimimgs[i];
+            if (count == 0)
+            {
+                start = i;
+            }
+            count += 1;
+        }
+        else if (count > 0)
+        {
+            break; // entries are grouped: stop at first non-match after finding some
         }
     }
-    return CountryRegulations::NOOP_TX_TIMESLOT; // Not found
+    if (count == 0)
+    {
+        return {};
+    }
+    return {protocolTxTimimgs.data() + start, count};
 }
 
 const CountryRegulations::ProtocolRxTimeSlot &CountryRegulations::getProtocolRxTimings(CountryRegulations::Zone zone, GATAS::DataSource dataSource)
@@ -79,6 +93,17 @@ uint32_t CountryRegulations::getFrequency(const GATAS::RfConfig &frequency, Coun
             return frequency.baseFrequency + frequency.channelSeperation;
         }
     }
+    case Channel::CH00_01_SEC:
+    {
+        if (CoreUtils::secondsSinceMidnight() % 2 == 0)
+        {
+            return frequency.baseFrequency;
+        }
+        else
+        {
+            return frequency.baseFrequency + frequency.channelSeperation;
+        }
+    }
     case Channel::CH24:
         return frequency.baseFrequency + CountryRegulations::frequencyByTimestamp(CoreUtils::secondsSinceEpoch(), 24) * frequency.channelSeperation;
     case Channel::CH65:
@@ -100,28 +125,27 @@ uint32_t CountryRegulations::frequencyByTimestamp(uint32_t timestamp, uint32_t n
     return v9 % nch;
 }
 
-uint32_t CountryRegulations::nextRandomTxTime(const CountryRegulations::ProtocolTxTimeSlot &pts)
+uint32_t CountryRegulations::nextRandomTxTime(bool staticTiming, const CountryRegulations::ProtocolTxTimeSlot &timing)
 {
     const uint32_t nowInSecond = CoreUtils::msInSecond();
 
-    const uint32_t minDelay = pts.txMinTime;
-    const uint32_t maxDelay = pts.txMaxTime;
+    // txMinTime/txMaxTime are the same across all entries in a group (validated at compile time)
+    const uint32_t minDelay = staticTiming ? timing.txStaticMinTime : timing.txMinTime;
+    const uint32_t maxDelay = staticTiming ? timing.txStaticMaxTime : timing.txMaxTime;
+    const uint32_t range = maxDelay - minDelay + 1;
 
-    constexpr int MAX_TRIES = 5;
+    constexpr uint32_t MAX_TRIES = 10;
 
-    uint32_t randRange = (uint32_t)(get_rand_64() % (maxDelay - minDelay + 1));
-    uint32_t delay = minDelay + randRange;
-
-    for (int i = 0; i < MAX_TRIES; ++i)
+    for (uint32_t i = 0; i < MAX_TRIES; ++i)
     {
-        uint32_t futureMs = (nowInSecond + delay) % 1000;
-        if (fitsAnyTiming(futureMs, pts.timeSlots))
+        uint32_t delay = minDelay + static_cast<uint32_t>(get_rand_64() % range);
+        uint32_t futureMs = nowInSecond + delay;
+        if (fitsAnyTiming(futureMs, timing.timeSlots))
         {
             return delay;
         }
-        delay = delay + 225;
     }
 
-    // No suitable slot found this time
     return UINT32_MAX;
 }
+

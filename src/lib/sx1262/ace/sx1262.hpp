@@ -35,21 +35,32 @@
  */
 class Sx1262 : public Radio, public etl::message_router<Sx1262, GATAS::RadioTxFrameMsg, GATAS::ConfigUpdatedMsg, GATAS::GpsStatsMsg, GATAS::RadioControlMsg>
 {
-    static constexpr uint32_t MAX_LISTEN_TIMEOUT = 150000; // maximum time we listen for packages before we timeout and reset the Sx1262
     static constexpr uint8_t MANCHESTER = 2;               // Used to just clarify why we sometime multiply by 2
+#if GATAS_DEBUG == 1
+    static constexpr bool LOW_POWER_MODE = true;
+#else
+    static constexpr bool LOW_POWER_MODE = false;
+#endif
+    static constexpr uint8_t LOW_POWER_DBM = 0; // - 17 (0xEF) to +14 (0x0E) dBm by step of 1 dB if low power PA is selected
+
+    // SInce the SX1262 only has a buffer of 256 bytes, we offset the RX buffer such that we can receive large frames
+    // Maximum size of ADSL TrafficUplink is 200bytes whuch would be the maximum we could receive or transmit
+    // This means using this configurationw e can never have one tranceiver send and receive ADSL large frames.
+    static constexpr uint8_t GROUNDSTATION_RX_BASE = 202; // Largest frame is 25 byte -> 50 in manchester But ADS-L doc seems to speak of 217 bytes
+    static constexpr uint8_t DEFAULT_RX_BASE = 54;
 
     enum TaskState : uint8_t
     {
-        DIO1_TX_DONE = 2,
-        DIO1_RX_DONE = 4,
-        HANDLETX = 8,
-        HANDLE_NEW_CONFIG = 16,
+        DIO1_TX_DONE = 1,
+        DIO1_RX_DONE = 2,
+        HANDLETX = 4,
+        HANDLE_RX_CONFIG = 8,
     };
 
     struct TxPacket
     {
         GATAS::RadioParameters radioParameters;
-        const uint8_t *frame;
+        PoolOwnedPtr<GATAS::GlobalPoolConfiguration, const uint8_t> frame;
         size_t length = 0;
     };
 
@@ -60,8 +71,6 @@ class Sx1262 : public Radio, public etl::message_router<Sx1262, GATAS::RadioTxFr
         uint32_t transmittedPackets = 0;
         uint32_t buzyWaitsTimeout = 0;
         uint32_t queueFull = 0;
-        uint32_t queueMissedErr = 0;
-
     } statistics;
 
     // ************************************************************************************
@@ -71,6 +80,14 @@ class Sx1262 : public Radio, public etl::message_router<Sx1262, GATAS::RadioTxFr
         {
             .pa_duty_cycle = 0x04, // Never increase above 0x04, device might damage
             .hp_max = 0x07,        // never ever increase above 0x07, device might damage
+            .device_sel = 0x00,    // sx1262
+            .pa_lut = 0x01,        // Always 1
+        };
+
+    static constexpr sx126x_pa_cfg_params_s DEFAULT_LOW_POWER_PA_CFG =
+        {
+            .pa_duty_cycle = 0x02, // Never increase above 0x04, device might damage
+            .hp_max = 0x02,        // never ever increase above 0x07, device might damage
             .device_sel = 0x00,    // sx1262
             .pa_lut = 0x01,        // Always 1
         };
@@ -120,7 +137,7 @@ class Sx1262 : public Radio, public etl::message_router<Sx1262, GATAS::RadioTxFr
         {
             .preamble_len_in_symb = 12,
             .header_type = SX126X_LORA_PKT_EXPLICIT,
-            .pld_len_in_bytes = 0x80,
+            .pld_len_in_bytes = GROUNDSTATION_RX_BASE, // Based on Uplink ADSL Size so they can be teh same size, that's all
             .crc_is_on = true,
             .invert_iq_is_on = false,
         };
@@ -129,7 +146,7 @@ class Sx1262 : public Radio, public etl::message_router<Sx1262, GATAS::RadioTxFr
         {
             .sf = SX126X_LORA_SF7,
             .bw = SX126X_LORA_BW_250,
-            .cr = SX126X_LORA_CR_4_8,
+            .cr = SX126X_LORA_CR_4_5,
             .ldro = 0,
         };
 
@@ -139,40 +156,40 @@ class Sx1262 : public Radio, public etl::message_router<Sx1262, GATAS::RadioTxFr
     const uint8_t busyPin;
     const uint8_t dio1Pin;
     const uint8_t radioNo;
-    uint32_t offsetHz;
     bool txEnabled;
-    bool hasGpsFix;
-    SpiModule *spiHall;
-    TaskHandle_t taskHandle;
-    SemaphoreHandle_t mutex;
-    RxDataFrameQueue *rxDataFrameQueue;
+    bool groundStation;
+    uint32_t offsetHz;
+    bool hasGpsFix = false;
+    SpiModule *spiHall = nullptr;
+    TaskHandle_t taskHandle = nullptr;
+    RxDataFrameQueue *rxDataFrameQueue = nullptr;
+    sx126x_errors_mask_t lastDeviceError=0;
+    sx126x_errors_mask_t currentDeviceError=0;
     etl::queue_spsc_atomic<TxPacket, 4, etl::memory_model::MEMORY_MODEL_SMALL> txQueue;
-    GATAS::RadioParameters rxRadioParameters{&PROTOCOL_NONE, nullptr, 868'000'000};
-    GATAS::RadioParameters newRxRadioParameters{&PROTOCOL_NONE, nullptr, 868'000'000};
+    GATAS::RadioParameters rxRadioParameters{&PROTOCOL_NONE, nullptr, 868'000'000, 0};
+    GATAS::RadioParameters newRxRadioParameters{&PROTOCOL_NONE, nullptr, 868'000'000, 0};
 
 public:
     static constexpr etl::array<etl::string_view, 4> NAMES{"Sx1262_0", "Sx1262_1", "Sx1262_2", "Sx1262_3"};
 
-    Sx1262(etl::imessage_bus &bus, const GATAS::PinTypeMap &pins, uint8_t radioNo_, bool txEnabled_, uint32_t offsetHz_) : Radio(bus, Radio::NAMES[radioNo_]),
-                                                                                                                           csPin(pins.at(GATAS::PinType::CS)),
-                                                                                                                           busyPin(pins.at(GATAS::PinType::BUSY)),
-                                                                                                                           dio1Pin(pins.at(GATAS::PinType::DIO1)),
-                                                                                                                           radioNo(radioNo_),
-                                                                                                                           offsetHz(offsetHz_),
-                                                                                                                           txEnabled(txEnabled_),
-                                                                                                                           hasGpsFix(false),
-                                                                                                                           spiHall(nullptr),
-                                                                                                                           taskHandle(nullptr),
-                                                                                                                           mutex(nullptr),
-                                                                                                                           rxDataFrameQueue(nullptr)
+    Sx1262(etl::imessage_bus &bus, const GATAS::PinTypeMap &pins, uint8_t radioNo_, bool txEnabled_, bool groundStation_, uint32_t offsetHz_) : Radio(bus, Radio::NAMES[radioNo_]),
+                                                                                                                                                csPin(pins.at(GATAS::PinType::CS)),
+                                                                                                                                                busyPin(pins.at(GATAS::PinType::BUSY)),
+                                                                                                                                                dio1Pin(pins.at(GATAS::PinType::DIO1)),
+                                                                                                                                                radioNo(radioNo_),
+                                                                                                                                                txEnabled(txEnabled_),
+                                                                                                                                                groundStation(groundStation_),
+                                                                                                                                                offsetHz(offsetHz_)
     {
-        //        assert(num >=0 && num <= 1);
     }
-    Sx1262(etl::imessage_bus &bus, const Configuration &config, uint8_t radioNo_) : Sx1262(bus, config.pinMap(NAMES[radioNo_]),
+    Sx1262(etl::imessage_bus &bus, const Configuration &config, uint8_t radioNo_) : Sx1262(bus,
+                                                                                           config.pinMap(NAMES[radioNo_]),
                                                                                            radioNo_,
                                                                                            config.valueByPath(true, NAMES[radioNo_], "txEnabled"),
+                                                                                           config.gaTasConfig().conspicuity.groundStation,
                                                                                            config.valueByPath(true, NAMES[radioNo_], "offset"))
     {
+
     }
 
     virtual ~Sx1262() = default;
@@ -226,6 +243,7 @@ public:
     void sendLORAPacket(const GATAS::RadioParameters &parameters, const uint8_t *data, uint8_t length);
     void configureSx1262(const GATAS::RadioParameters &newParameters, uint8_t txPayloadLength);
     sx126x_irq_mask_t getIrqStatus();
+    bool isTxDone();
 
     void listen();
     void standBy();
@@ -238,4 +256,9 @@ public:
     void sendPacket(const TxPacket &txpacket);
 
     void waitBusy(uint16_t minimumDelay = 0) const;
+
+    /**
+     * When module is disabled, this static function can be called to ensure the CS pin is not floating and the device is in sleep mode.
+     */
+    static void enterDisabledState(uint8_t radioNo, const Configuration &config);
 };
