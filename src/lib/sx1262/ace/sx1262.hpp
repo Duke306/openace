@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../driver/src/sx126x.h"
-#include "../driver/src/sx126x_hal.h"
+#include "../usp/smtc_rac_lib/radio_drivers/sx126x_driver/src/sx126x.h"
+#include "../usp/smtc_rac_lib/radio_drivers/sx126x_driver/src/sx126x_hal.h"
 
 /* System. */
 #include <stdint.h>
