@@ -3,10 +3,6 @@
 /* FreeRTOS. */
 #include "FreeRTOS.h"
 #include "task.h"
-#include "queue.h"
-
-/* ETL. */
-#include "etl/map.h"
 
 /* GATAS. */
 #include "ace/manchester.hpp"
@@ -15,39 +11,8 @@
 #include "ace/models.hpp"
 #include "ace/moreutils.hpp"
 
-void Sx1262::start()
+bool Sx1262::detectradio() const
 {
-    sx126x_reset(this);
-    getBus().subscribe(*this);
-};
-
-GATAS::PostConstruct Sx1262::postConstruct()
-{
-    spiHall = static_cast<SpiModule *>(BaseModule::moduleByName(*this, SpiModule::NAME));
-
-    if (spiHall == nullptr)
-    {
-        return GATAS::PostConstruct::DEP_NOT_FOUND;
-    }
-
-    rxDataFrameQueue = static_cast<RxDataFrameQueue *>(BaseModule::moduleByName(*this, RxDataFrameQueue::NAME));
-    if (rxDataFrameQueue == nullptr)
-    {
-        return GATAS::PostConstruct::DEP_NOT_FOUND;
-    }
-
-    // Chip select is active-low, so we'll initialise it to a driven-high state
-    gpio_init(csPin);
-    gpio_set_dir(csPin, GPIO_OUT);
-    gpio_put(csPin, 1);
-
-    // Busy Pin has PullUp from SX1262 so kept as input only
-    gpio_init(busyPin);
-    gpio_set_dir(busyPin, GPIO_IN);
-
-    gpio_init(dio1Pin);
-    gpio_set_dir(dio1Pin, GPIO_IN);
-
     // Read the device type
     char data[7];
     sx126x_read_register(this, 0x0320, (uint8_t *)data, 6);
@@ -58,26 +23,10 @@ GATAS::PostConstruct Sx1262::postConstruct()
     if (strncmp(data, "SX126", 5) != 0)
     {
         GATAS_WARN("Expected SX126X, but found [%s] ", data);
-        return GATAS::PostConstruct::HARDWARE_NOT_FOUND;
+        return false;
     }
     GATAS_INFO(" found [%s] (Sx1261 is normal for a Sx1262) ", data);
-
-    radioInit();
-
-    if (xTaskCreate(sx1262Trampoline, NAMES[radioNo].cbegin(), configMINIMAL_STACK_SIZE + 128, this, tskIDLE_PRIORITY + 4, &taskHandle) != pdPASS)
-    {
-        return GATAS::PostConstruct::TASK_ERROR;
-    }
-    registerPinInterrupt(dio1Pin, GPIO_IRQ_EDGE_RISE, taskHandle, 0);
-
-    GATAS_INFO("Initialised on cs:%d busy:%d dio1:%d ", csPin, busyPin, dio1Pin);
-
-    // Make the SPI pins available to picotool
-    bi_decl(bi_1pin_with_name(static_cast<uint32_t>(csPin), NAMES[radioNo].cbegin()));
-    bi_decl(bi_1pin_with_name(static_cast<uint32_t>(busyPin), NAMES[radioNo].cbegin()));
-    bi_decl(bi_1pin_with_name(static_cast<uint32_t>(dio1Pin), NAMES[radioNo].cbegin()));
-
-    return GATAS::PostConstruct::OK;
+    return true;
 }
 
 void Sx1262::enterDisabledState(uint8_t radioNo, const Configuration &config)
@@ -112,57 +61,11 @@ void Sx1262::getData(etl::string_stream &stream, const etl::string_view path) co
     stream << "}";
 }
 
-void Sx1262::on_receive(const GATAS::RadioTxFrameMsg &msg)
-{
-    if (msg.radioNo == radioNo)
-    {
-        if (hasGpsFix && txEnabled)
-        {
-            TxPacket txPacket{
-                .radioParameters = msg.radioParameters,
-                .frame = etl::move(msg.frame),
-                .length = msg.length};
-
-            if (!txQueue.push(etl::move(txPacket)))
-            {
-                statistics.queueFull += 1;
-            }
-        }
-
-        xTaskNotify(taskHandle, TaskState::HANDLETX, eSetBits);
-    }
-}
-
-void Sx1262::on_receive(const GATAS::ConfigUpdatedMsg &msg)
-{
-    if (msg.moduleName == Sx1262::NAMES[radioNo])
-    {
-        txEnabled = msg.config.valueByPath(true, Sx1262::NAMES[radioNo], "txEnabled");
-        offsetHz = msg.config.valueByPath(true, Sx1262::NAMES[radioNo], "offset");
-    }
-    groundStation = msg.config.gaTasConfig().conspicuity.groundStation;
-}
-
-void Sx1262::on_receive(const GATAS::GpsStatsMsg &msg)
-{
-    hasGpsFix = msg.gpsStats.gpsFix.hasFix;
-}
-
-void Sx1262::on_receive(const GATAS::RadioControlMsg &msg)
-{
-    if (msg.radioNo == radioNo)
-    {
-        newRxRadioParameters = SpinlockGuard::copyWithLock(CoreUtils::sharedSpinLock(), msg.radioParameters);
-        xTaskNotify(taskHandle, TaskState::HANDLE_RX_CONFIG, eSetBits);
-    }
-}
-
-/**
- * Apply methods
- */
-
 void Sx1262::radioInit()
 {
+    // TODO: Check if this is a reset for this device, or all devices
+    sx126x_reset(this);
+
     // .365
     waitBusy(50);
 
@@ -212,8 +115,9 @@ void Sx1262::radioInit()
     sx126x_cfg_rx_boosted(this, true);
 }
 
-void Sx1262::configureSx1262(const GATAS::RadioParameters &newParameters, uint8_t payloadLength)
+void Sx1262::configureRadio(const GATAS::RadioParameters &newParameters, uint8_t payloadLength)
 {
+
     // 9.8 Transceiver Circuit Modes Graphical Illustration
     standBy();
 
@@ -537,24 +441,6 @@ uint8_t Sx1262::receivedPacketLength() const
     return rx_buffer_status.pld_len_in_bytes;
 }
 
-void Sx1262::waitBusy(uint16_t minimumDelay) const
-{
-    constexpr uint8_t checkInterval = 100; // loop cycles per check
-
-    uint8_t countdown = checkInterval;
-    while (gpio_get(busyPin))
-    {
-        vTaskDelay(TASK_DELAY_MS(2));
-        if (--countdown == 0)
-        {
-            statistics.buzyWaitsTimeout += 1;
-            return;
-        }
-    }
-
-    vTaskDelay(TASK_DELAY_MS(minimumDelay));
-}
-
 void Sx1262::standBy()
 {
     GATAS_MEASURE("standBy", 2000 /* 150 */);
@@ -571,8 +457,8 @@ void Sx1262::checkAndClearDeviceErrors()
     {
         statistics.deviceErrors += 1;
         lastDeviceError = currentDeviceError;
-        sx126x_set_dio_irq_params(this, SX126X_IRQ_NONE, SX126X_IRQ_NONE, SX126X_IRQ_NONE, SX126X_IRQ_NONE);
         sx126x_clear_irq_status(this, SX126X_IRQ_ALL);
+        sx126x_set_dio_irq_params(this, SX126X_IRQ_NONE, SX126X_IRQ_NONE, SX126X_IRQ_NONE, SX126X_IRQ_NONE);
         sx126x_clear_device_errors(this);
         GATAS_WARN("Device Error: %b", currentDeviceError);
     }
@@ -594,138 +480,4 @@ bool Sx1262::isTxDone()
         return true;
     }
     return false;
-}
-
-void Sx1262::sendPacket(const TxPacket &txPacket)
-{
-    // GATAS_INFO("Radio %d TX %s timeMs:%d", radioNo, GATAS::toString(command.txPacket.radioParameters.config->dataSource), CoreUtils::msInSecond());
-    // TODO: Sometimes configuration can take a few msmeven we don;t change protocol
-
-    if (txPacket.radioParameters.frequency->mode == GATAS::Modulation::GFSK)
-    {
-        GATAS_MEASURE("sendGFSKPacket", 800);
-        if (txPacket.radioParameters.config->manchester)
-        {
-            if (txPacket.length > GATAS::RADIO_MAX_TX_GFSK_FRAME_LENGTH)
-            {
-                GATAS_WARN("Frame too long for manchester encoding %d", txPacket.length);
-                return;
-            }
-            uint8_t manchesterFrame[GATAS::RADIO_MAX_TX_GFSK_FRAME_LENGTH * MANCHESTER];
-            manchesterEncode(manchesterFrame, txPacket.frame, txPacket.length);
-            sendGFSKPacket(txPacket.radioParameters, manchesterFrame, txPacket.length * MANCHESTER);
-        }
-        else
-        {
-            sendGFSKPacket(txPacket.radioParameters, txPacket.frame, txPacket.length);
-        }
-    }
-    else if (txPacket.radioParameters.frequency->mode == GATAS::Modulation::LORA)
-    {
-        GATAS_MEASURE("sendLORAPacket", 100);
-        sendLORAPacket(txPacket.radioParameters, txPacket.frame, txPacket.length);
-    }
-}
-
-void Sx1262::sx1262Trampoline(void *arg)
-{
-    Sx1262 *sx1262 = static_cast<Sx1262 *>(arg);
-    sx1262->sx1262Task(arg);
-}
-
-void Sx1262::sx1262Task(void *arg)
-{
-    (void)arg;
-    SpiModule *aceSpi = static_cast<SpiModule *>(BaseModule::moduleByName(*this, SpiModule::NAME));
-    uint32_t keepTransmittingUntill = 0;
-    bool doListen = false;
-    while (true)
-    {
-        uint32_t notifyValue = 0;
-        xTaskNotifyWait(pdFALSE, ULONG_MAX, &notifyValue, TASK_DELAY_MS(2000));
-
-        if (notifyValue)
-        {
-            // When a new configuration mark it with a boolean as it needs to be processed later
-            if (notifyValue & TaskState::HANDLE_RX_CONFIG)
-            {
-                rxRadioParameters = SpinlockGuard::copyWithLock(CoreUtils::sharedSpinLock(), newRxRadioParameters);
-                // GATAS_INFO("%8ld New Config ds:%s", CoreUtils::timeUs32Raw() / 1000, GATAS::toString(rxRadioParameters.config->dataSource()));
-                doListen = true;
-            }
-
-            // After TX, go back to RX
-            if (notifyValue & TaskState::DIO1_TX_DONE)
-            {
-                statistics.transmittedPackets += 1;
-                doListen = true;
-                keepTransmittingUntill = 0;
-            }
-
-            // When in TX mode, the transceiver cannot be reconfigured and we need to wait for the TX to finish
-            if (keepTransmittingUntill)
-            {
-                // Keep listening
-                if (!CoreUtils::isUsReachedRaw(keepTransmittingUntill))
-                {
-                    // TX still in progress — normal, skip queue and wait for DIO1_TX_DONE
-                    continue;
-                }
-                // 55ms elapsed without DIO1_TX_DONE — hardware likely stuck, fall through to recover
-                GATAS_WARN("TX timeout - no DIO1_TX_DONE received within 55ms");
-                keepTransmittingUntill = 0;
-                doListen = true;
-            }
-
-            // When a packet is received, receive it and directly reconfigure the transceiver.. then send it to the bus
-            if (notifyValue & TaskState::DIO1_RX_DONE)
-            {
-                // GATAS_INFO("Radio %d Packet RX: %s timeMs:%d", radioNo, GATAS::toString(rxRadioParameters.config->dataSource), CoreUtils::msInSecond());
-                bool _;
-                if (auto guard = aceSpi->getLock(_))
-                {
-                    standBy();
-                    if (rxRadioParameters.frequency->mode == GATAS::Modulation::GFSK)
-                    {
-                        GATAS_MEASURE("Receive GFSK Packet Radio:", 1800, rxRadioParameters.hopFrequency);
-                        receiveGFSKPacket();
-                        doListen = true;
-                    }
-                    else if (rxRadioParameters.frequency->mode == GATAS::Modulation::LORA)
-                    {
-                        GATAS_MEASURE("Receive Lora Packet Radio:", 0, radioNo);
-                        receiveLORAPacket();
-                        doListen = true;
-                    }
-                }
-            };
-
-            // Only in TX
-            if (TxPacket txPacket; txQueue.pop(txPacket))
-            {
-                bool _;
-                if (auto guard = aceSpi->getLock(_))
-                {
-                    GATAS_MEASURE("Send Radio:", 1500, radioNo);
-                    // GATAS_INFO("%8ld TX Packet ds:%s", CoreUtils::timeUs32Raw() / 1000, GATAS::toString(txPacket.radioParameters.config->dataSource()));
-                    keepTransmittingUntill = CoreUtils::timeUs32Raw() + 55000; // 55ms is longest packet expect (LORA)
-                    configureSx1262(txPacket.radioParameters, txPacket.length);
-                    sendPacket(txPacket);
-                    continue; // Need to wait for TX done
-                }
-            }
-
-            // When set, instruct to start listening again
-            if (doListen)
-            {
-                bool _;
-                if (auto guard = aceSpi->getLock(_))
-                {
-                    configureSx1262(rxRadioParameters, 0);
-                    listen();
-                }
-                doListen = false;
-            }
-        }
-    }
 }

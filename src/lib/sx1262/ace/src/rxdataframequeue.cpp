@@ -11,7 +11,7 @@
 
 GATAS::PostConstruct RxDataFrameQueue::postConstruct()
 {
-    // Task must be lower compared to any SX1262 task
+    // Task must be lower compared to any Radio *Like Sx1262) task
     if (xTaskCreate(radioQueueTaskTrampoline, RxDataFrameQueue::NAME.cbegin(), configMINIMAL_STACK_SIZE + 1024, this, tskIDLE_PRIORITY + 2, &taskHandle) != pdPASS)
     {
         return GATAS::PostConstruct::TASK_ERROR;

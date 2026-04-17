@@ -42,6 +42,7 @@
 #include "ace/acespi.hpp"
 #include "ace/bmp280.hpp"
 #include "ace/sx1262.hpp"
+#include "ace/lr2021.hpp"
 #include "ace/radiotunerrx_v2.hpp"
 #include "ace/rxdataframequeue.hpp"
 #include "ace/radiotunertx_v2.hpp"
@@ -90,6 +91,8 @@ void registerModules()
     BaseModule::registerModule(PicoRtc::NAME, false);
     BaseModule::registerModule(Sx1262::NAMES[0], true);
     BaseModule::registerModule(Sx1262::NAMES[1], true);
+    BaseModule::registerModule(Lr2021::NAMES[0], true);
+    BaseModule::registerModule(Lr2021::NAMES[1], true);
     BaseModule::registerModule(RadioTunerTx::NAME, false);
     BaseModule::registerModule(RadioTunerRx::NAME, false);
     BaseModule::registerModule(RxDataFrameQueue::NAME, false);
@@ -120,11 +123,14 @@ void registerModules()
 static uint8_t aceSpi_Mem[sizeof(AceSpi)];
 static uint8_t sx1262_1_Mem[sizeof(Sx1262)];
 static uint8_t sx1262_2_Mem[sizeof(Sx1262)];
+static uint8_t lr2021_1_Mem[sizeof(Lr2021)];
+static uint8_t lr2021_2_Mem[sizeof(Lr2021)];
 static uint8_t GpsDecoder_Mem[sizeof(GpsDecoder)];
 static uint8_t GPS_Mem[etl::max(sizeof(UbloxM8N), sizeof(L76B))];
 static uint8_t DataPort_Mem[sizeof(DataPort)];
 
 GATAS::GlobalPoolConfiguration pool;
+uint8_t RADIO_CNT=0;
 
 void disabled(etl::string_view name, Configuration &config)
 {
@@ -183,6 +189,10 @@ BaseModule *loadModule(etl::string_view name, etl::imessage_bus &bus, Configurat
         return new (sx1262_1_Mem) Sx1262(bus, config, 0);
     if (name == Sx1262::NAMES[1])
         return new (sx1262_2_Mem) Sx1262(bus, config, 1);
+    if (name == Lr2021::NAMES[0])
+        return new (lr2021_1_Mem) Lr2021(bus, config, 2);
+    if (name == Lr2021::NAMES[1])
+        return new (lr2021_2_Mem) Lr2021(bus, config, 3);
     if (name == PicoRtc::NAME)
         return new PicoRtc(bus, config);
     if (name == Webserver::NAME)
@@ -330,6 +340,10 @@ static void loadModules(void *arg)
     for (uint8_t i = 0; i < GATAS_MAX_RADIOS; i++)
     {
         load(Sx1262::NAMES[i], bus, config);
+    }
+    for (uint8_t i = 0; i < GATAS_MAX_RADIOS; i++)
+    {
+        load(Lr2021::NAMES[i], bus, config);
     }
     // Other for these two are currently important to ensure configuration on TX is set before RX
     // see RadioTunerRx::enableDisableDatasources()

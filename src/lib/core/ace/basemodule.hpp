@@ -243,25 +243,6 @@ public:
     virtual uint8_t spiNum() const = 0;
 };
 
-/**
- * A Radio baseclase that 'real' Radio's like the SX1262 should extend so they can be controlled in a generic way
- */
-class Radio : public BaseModule
-{
-public:
-    static constexpr etl::array<etl::string_view, 4> NAMES{"_Radio_0", "_Radio_1", "_Radio_2", "_Radio_3"};
-    Radio(etl::imessage_bus &bus, const etl::string_view name) : BaseModule(bus, name)
-    {
-    }
-
-    struct RxMode
-    {
-        const GATAS::RadioParameters radioParameters;
-    };
-
-    virtual ~Radio() = default;
-    virtual uint8_t radio() const = 0;
-};
 
 class Configuration : public BaseModule
 {

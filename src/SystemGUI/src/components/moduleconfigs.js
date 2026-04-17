@@ -711,8 +711,18 @@ class Sx1262_1 extends SX1262 {
   name = "Sx1262_1";
 }
 
+class Lr2021_0 extends SX1262 {
+  name = "Lr2021_0";
+}
+
+class Lr2021_1 extends SX1262 {
+  name = "Lr2021_1";
+}
+
 customElements.define("sx1262_0-config", Sx1262_0);
 customElements.define("sx1262_1-config", Sx1262_1);
+customElements.define("lr2021_0-config", Lr2021_0);
+customElements.define("lr2021_1-config", Lr2021_1);
 
 class BluetoothConfig extends ModuleConfig {
   created() {

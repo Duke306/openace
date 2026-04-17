@@ -36,6 +36,8 @@ class GaTasModules extends El {
       "RxDataFrameQueue",
       "Sx1262_0",
       "Sx1262_1",
+      "Lr2021_0",
+      "Lr2021_1",
       "UbloxM8N",
       "L76B",
       "ADSBDecoder",
@@ -51,7 +53,7 @@ class GaTasModules extends El {
       "GatasConnect"
     ];
 
-    this.configurable = ["AircraftTracker", "L76B", "UbloxM8N", "WifiService", "ADSBDecoder", "GDLoverUDP", "Dump1090Client", "Bmp280", "Sx1262_0", "Sx1262_1", "Bluetooth", "GatasConnect"];
+    this.configurable = ["AircraftTracker", "L76B", "UbloxM8N", "WifiService", "ADSBDecoder", "GDLoverUDP", "Dump1090Client", "Bmp280", "Sx1262_0", "Sx1262_1", "Lr2021_0", "Lr2021_1", "Bluetooth", "GatasConnect"];
 
     this.enablers = [
       "ADSBDecoder",
@@ -64,8 +66,10 @@ class GaTasModules extends El {
       "Bmp280",
       "ADSL",
       "SerialADSB",
-      "Sx1262_1",
       "Sx1262_0",
+      "Sx1262_1",
+      "Lr2021_0",
+      "Lr2021_1",
       "UbloxM8N",
       "L76B",
       "RadioTunerRx",
@@ -102,6 +106,8 @@ class GaTasModules extends El {
       PicoRtc: (html) => html`Reads GPS messages and handles accurate time tracking for various protocols.`,
       Sx1262_0: (html) => html`Radio module 1. Sends and receives ADS-L, OGN, and Flarm protocols.`,
       Sx1262_1: (html) => html`Radio module 2. Sends and receives ADS-L, OGN, and Flarm protocols.`,
+      Lr2021_0: (html) => html`Radio module 1. Sends and receives ADS-L, OGN, and Flarm protocols.`,
+      Lr2021_1: (html) => html`Radio module 2. Sends and receives ADS-L, OGN, and Flarm protocols.`,
       RadioTunerRx: (html) => html`Manages timings for receiving multiple protocols over one or more radios (Flarm, OGN, and ADS-L).`,
       RadioTunerTx: (html) => html`Manages sending regular position messages over different protocols like Flarm, OGN, and ADS-L.`,
       RxDataFrameQueue: (html) => html`Receives the RAW dataframes from a transceiver and prepares to send them to the various protocols. This will free up the transceiver to do other work.`,

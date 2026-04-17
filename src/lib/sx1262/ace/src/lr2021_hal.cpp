@@ -1,4 +1,4 @@
-#include "../sx1262.hpp"
+#include "../lr2021.hpp"
 
 /* FreeRTOS. */
 #include "FreeRTOS.h"
@@ -11,15 +11,9 @@
 #include "ace/basemodule.hpp"
 #include "ace/coreutils.hpp"
 
-/**
- * Wait for BUZY pin to go low or timeout.
- * When BUZY is low, the SX1262 is ready for new commands
- * returns 0 for sucess, 1 for timeout
- * This currently uses a spinlock with a timeoiut function
- */
-uint8_t lr20xx_buzy_wait(uint8_t busyPin)
+static uint8_t lr20xx_buzy_wait(uint8_t busyPin)
 {
-    constexpr uint8_t checkInterval = 100; // loop cycles per check
+    constexpr uint8_t checkInterval = 100;
     constexpr uint32_t timeoutUs = 250'000;
 
     uint8_t countdown = checkInterval;
@@ -41,48 +35,48 @@ uint8_t lr20xx_buzy_wait(uint8_t busyPin)
 lr20xx_hal_status_t lr20xx_hal_write(const void *context, const uint8_t *command, const uint16_t command_length,
                                      const uint8_t *data, const uint16_t data_length)
 {
-    Sx1262 *sx1262 = (Sx1262 *)context;
-    SpiModule *spi = sx1262->spi();
+    Lr2021 *lr2021 = (Lr2021 *)context;
+    SpiModule *spi = lr2021->spi();
 
-    lr20xx_hal_status_t ret = SX126X_HAL_STATUS_OK;
-    if (lr20xx_buzy_wait(sx1262->busy()))
+    lr20xx_hal_status_t ret = LR20XX_HAL_STATUS_OK;
+    if (lr20xx_buzy_wait(lr2021->busy()))
     {
         GATAS_WARN("hal write, Wait busy timeout");
-        ret = SX126X_HAL_STATUS_ERROR;
+        ret = LR20XX_HAL_STATUS_ERROR;
     }
     else
     {
-        spi->cs_select(sx1262->cs());
+        spi->cs_select(lr2021->cs());
         spi_write_blocking(spi->spiNum() ? spi1 : spi0, command, command_length);
         if (data_length != 0)
         {
             spi_write_blocking(spi->spiNum() ? spi1 : spi0, data, data_length);
         }
     }
-    spi->cs_deselect(sx1262->cs());
+    spi->cs_deselect(lr2021->cs());
     return ret;
 }
 
 lr20xx_hal_status_t lr20xx_hal_read(const void *context, const uint8_t *command, const uint16_t command_length,
                                     uint8_t *data, const uint16_t data_length)
 {
-    Sx1262 *sx1262 = (Sx1262 *)context;
-    SpiModule *spi = sx1262->spi();
+    Lr2021 *lr2021 = (Lr2021 *)context;
+    SpiModule *spi = lr2021->spi();
 
-    lr20xx_hal_status_t ret = SX126X_HAL_STATUS_OK;
-    if (lr20xx_buzy_wait(sx1262->busy()))
+    lr20xx_hal_status_t ret = LR20XX_HAL_STATUS_OK;
+    if (lr20xx_buzy_wait(lr2021->busy()))
     {
         GATAS_WARN("hal read, Wait busy timeout");
-        ret = SX126X_HAL_STATUS_ERROR;
+        ret = LR20XX_HAL_STATUS_ERROR;
     }
     else
     {
-        spi->cs_select(sx1262->cs());
+        spi->cs_select(lr2021->cs());
         int length = spi_write_blocking(spi->spiNum() ? spi1 : spi0, command, command_length);
         if (length != command_length)
         {
             GATAS_WARN("lr20xx_hal_read write error");
-            ret = SX126X_HAL_STATUS_ERROR;
+            ret = LR20XX_HAL_STATUS_ERROR;
         }
         else
         {
@@ -90,25 +84,49 @@ lr20xx_hal_status_t lr20xx_hal_read(const void *context, const uint8_t *command,
             if (length != data_length)
             {
                 GATAS_WARN("lr20xx_hal_read read error");
-                ret = SX126X_HAL_STATUS_ERROR;
+                ret = LR20XX_HAL_STATUS_ERROR;
             }
         }
     }
-    spi->cs_deselect(sx1262->cs());
+    spi->cs_deselect(lr2021->cs());
     return ret;
+}
+
+lr20xx_hal_status_t lr20xx_hal_direct_read(const void *context, uint8_t *data, const uint16_t data_length)
+{
+    Lr2021 *lr2021 = (Lr2021 *)context;
+    SpiModule *spi = lr2021->spi();
+
+    if (lr20xx_buzy_wait(lr2021->busy()))
+    {
+        GATAS_WARN("hal direct read, Wait busy timeout");
+        return LR20XX_HAL_STATUS_ERROR;
+    }
+
+    spi->cs_select(lr2021->cs());
+    int length = spi_read_blocking(spi->spiNum() ? spi1 : spi0, 0, data, data_length);
+    spi->cs_deselect(lr2021->cs());
+
+    return (length == data_length) ? LR20XX_HAL_STATUS_OK : LR20XX_HAL_STATUS_ERROR;
+}
+
+lr20xx_hal_status_t lr20xx_hal_direct_read_fifo(const void *context, const uint8_t *command,
+                                                 const uint16_t command_length, uint8_t *data,
+                                                 const uint16_t data_length)
+{
+    return lr20xx_hal_read(context, command, command_length, data, data_length);
 }
 
 lr20xx_hal_status_t lr20xx_hal_reset(const void *context)
 {
-    // Reset is already given once when the SPI starts up
     (void)context;
-    GATAS_INFO("SX1262 Reset called");
-    return SX126X_HAL_STATUS_OK;
+    GATAS_INFO("Lr2021 Reset called");
+    return LR20XX_HAL_STATUS_OK;
 }
 
 lr20xx_hal_status_t lr20xx_hal_wakeup(const void *context)
 {
     (void)context;
-    GATAS_INFO("SX1262 wakeup called");
-    return SX126X_HAL_STATUS_OK;
+    GATAS_INFO("Lr2021 wakeup called");
+    return LR20XX_HAL_STATUS_OK;
 }

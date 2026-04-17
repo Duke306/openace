@@ -12,18 +12,18 @@
 
 GATAS::PostConstruct RadioTunerRx::postConstruct()
 {
-    if (moduleByName(*this, Radio::NAMES[0]))
-    {
-        radioCtxList.emplace_back(this, 0);
-    }
-    else
-    {
-        return GATAS::PostConstruct::DEP_NOT_FOUND;
-    }
-    if (moduleByName(*this, Radio::NAMES[1]))
-    {
-        radioCtxList.emplace_back(this, 1);
-    }
+    // if (moduleByName(*this, Radio::NAMES[0]))
+    // {
+    //     radioCtxList.emplace_back(this, 0);
+    // }
+    // else
+    // {
+    //     return GATAS::PostConstruct::DEP_NOT_FOUND;
+    // }
+    // if (moduleByName(*this, Radio::NAMES[1]))
+    // {
+    //     radioCtxList.emplace_back(this, 1);
+    // }
 
     if (xTaskCreate(radioTuneTask, RadioTunerRx::NAME.cbegin(), configMINIMAL_STACK_SIZE + 256, this, tskIDLE_PRIORITY + 2, &taskHandle) != pdPASS)
     {
@@ -168,6 +168,7 @@ void RadioTunerRx::on_receive(const GATAS::OwnshipPositionMsg &msg)
 
         if (currentZone.isModified())
         {
+            clearTrafficStats();
             assignDataSourcesWithTrafficBias();
         }
     }
@@ -263,7 +264,12 @@ void RadioTunerRx::assignDataSourcesImpl(etl::span<const uint8_t> receiveBoost)
             if (i % radioCount == idx)
             {
                 const auto *timing = availableTimings[i];
-                const uint8_t extraCount = etl::min<uint8_t>(receiveBoost[static_cast<uint8_t>(timing->radioConfig.dataSource())], 2) + 1;
+                uint8_t boost = 0;
+                if (!receiveBoost.empty())
+                {
+                    boost = receiveBoost[static_cast<uint8_t>(timing->radioConfig.dataSource())];
+                }
+                const uint8_t extraCount = etl::min<uint8_t>(boost, 2) + 1;
                 for (uint8_t extra = 0; extra < extraCount; ++extra)
                 {
                     appendProtocolTimings(ctx, timing, secondIndex);

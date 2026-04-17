@@ -510,7 +510,7 @@ namespace GATAS
         const GATAS::LinkLayerConfig *config;
         PoolOwnedPtr<GATAS::GlobalPoolConfiguration, uint8_t> frame;
         size_t length; // Length of the data frame in bytes
-        int8_t rssidBm;
+        int16_t rssidBm;
     };
 
     /**

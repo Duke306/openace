@@ -12,6 +12,7 @@ add_library(${PROJECT_NAME} STATIC ${MODULE_SOURCE_FILES})
 target_include_directories(${PROJECT_NAME} INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/>
     PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+    $<BUILD_INTERFACE:${MODULE_TARGET_INCLUDE}/>
 )
 
 # Set compile options for each file of GaTas
@@ -29,7 +30,7 @@ if (NOT "${PROJECT_NAME}" STREQUAL "core")
 endif()
 
 # Link libraries
-target_link_libraries(${PROJECT_NAME} 
+target_link_libraries(${PROJECT_NAME}
     PRIVATE
     FreeRTOS-Kernel-Heap4
     pico_stdlib
