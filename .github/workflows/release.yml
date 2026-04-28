@@ -136,7 +136,8 @@ jobs:
         env:
           VERSION: ${{ github.ref_name }}
         run: |
-          awk '/^## \[[0-9]/{flag=1; next} /^## \[/{if(flag)exit} flag' CHANGELOG.md > /tmp/changelog_section.md
+          VERSION_NO_V="${VERSION#v}"
+          awk -v ver="$VERSION_NO_V" '$0 ~ "^## \\[" ver "\\]"{flag=1; next} /^## \[/{if(flag)exit} flag' CHANGELOG.md > /tmp/changelog_section.md
           python3 -c "
           import os
           t = open('.github/release.md').read()
