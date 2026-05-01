@@ -31,7 +31,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
-## 2.0.0 - 2026-04-13
+## [v2.1.1] - 2026-04-30
+
+### Added
+
+-
+
+### Changed
+
+-
+
+### Deprecated
+
+-
+
+### Removed
+
+-
+
+### Fixed
+
+- Better rendering of RadioTUnerTX and Protocol Timing in the UI
+- Moved the 'action' buttons to a seperate page in the UI
+
+### Security
+
+-
+
+## [v2.1.0] - 2026-04-28
+
+### Added
+
+-
+
+### Changed
+
+- FLARM packets will now be corrected for bit flips when possible to improve reception on larger distances
+
+### Deprecated
+
+-
+
+### Removed
+
+-
+
+### Fixed
+
+- AntennaRadionPattern was alligned to north instead of track of aircraft. Only issue in the web interface
+
+### Security
+
+-
+
+## [v2.0.1] - 2026-04-23
+
+### Added
+
+- Prefer radio-derived positions over ADS-B when an aircraft is received from multiple data sources. Only switch to ADS-B if the radio position is older than
+  4,000,000 µs (4 seconds). This avoids sudden position jumps, as ADS-B data is typically delayed. And we trust radio positions more.
+
+### Changed
+
+-
+
+### Deprecated
+
+-
+
+### Removed
+
+-
+
+### Fixed
+
+-
+
+### Security
+
+-
+
+## [v2.0.0] - 2026-04-13
 
 ### Added
 
@@ -72,7 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
-## [1.2.0] - 2026-03-12
+## [v1.2.0] - 2026-03-12
 
 ### Added
 
@@ -87,6 +167,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - GDL90 Bug where negative lat/log where not resolved correctly on output
 
-## [1.1.0] - 2026-03-02
+## [v1.1.0] - 2026-03-02
 
 - Initial release of GATAS
