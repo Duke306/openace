@@ -100,7 +100,7 @@ void RadioTunerRx::radioTuneTask(void *arg)
             }
 
             // Position within the repeating cycle
-            const int32_t cycleMs = static_cast<int32_t>(loopStartMs % ref.maxTimeMs);
+            const auto cycleMs = loopStartMs % ref.maxTimeMs;
 
             // Find which entry covers this time
             size_t foundIdx = 0;
@@ -325,7 +325,7 @@ void RadioTunerRx::spreadSecondIndex(RadioProtocolCtx &ctx)
         }
     }
 
-    const uint16_t N = static_cast<uint16_t>(unique.size());
+    const auto N = unique.size();
     if (N <= 2)
     {
         return; // nothing to improve
@@ -334,12 +334,12 @@ void RadioTunerRx::spreadSecondIndex(RadioProtocolCtx &ctx)
     // 2. Build new order: even indices first, then odd
     IndexVector order;
 
-    for (uint16_t i = 0; i < N; i += 2)
+    for (size_t i = 0; i < N; i += 2)
     {
         order.push_back(unique[i]);
     }
 
-    for (uint16_t i = 1; i < N; i += 2)
+    for (size_t i = 1; i < N; i += 2)
     {
         order.push_back(unique[i]);
     }

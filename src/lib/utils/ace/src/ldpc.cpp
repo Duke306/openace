@@ -3,6 +3,14 @@
 
 #include "../ldpc.hpp"
 
+// We would like to have this enabled, but it's hard to fix this correctly since there are not tests available.
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
+
+
 #ifndef __AVR__
 #include <cmath>
 #endif
@@ -861,3 +869,6 @@ uint8_t LDPC_Check_n354k160(const uint32_t *Data)
 
 #endif // __AVR__
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif

@@ -6,6 +6,7 @@
 #ifndef __LDPC_H__
 #define __LDPC_H__
 
+
 #include <stdio.h>
 #include <stdint.h>
 #include "pico/stdlib.h"
@@ -15,7 +16,12 @@
 
 #include "bitutils.hpp"
 
-
+// We would like to have this enabled, but it's hard to fix this correctly since there are not tests available.
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
 
 // extern const uint32_t LDPC_ParityGen_n208k160[48][5];
 // extern const uint32_t LDPC_ParityCheck_n208k160[48][7];
@@ -205,7 +211,7 @@ public:
         {
             OutBit[Bit] = InpBit[Bit] + (ExtBit[Bit]>>1);
         }
-        return static_cast<int8_t>(Count);
+        return Count;
     }
 
     int16_t ProcessCheck(uint8_t Row)
@@ -242,7 +248,7 @@ public:
             uint8_t BitIdx=CheckIndex[Bit];
             int16_t Ampl = Bit==MinBit ? MinAmpl2 : MinAmpl;
             if(CheckFails) Ampl=(-Ampl);
-            ExtBit[BitIdx] = static_cast<int16_t>(ExtBit[BitIdx] + ((Word & Mask) ? Ampl : -Ampl));
+            ExtBit[BitIdx] += (Word&Mask) ? Ampl:-Ampl;
             Mask<<=1;
         }
         return CheckFails?-MinAmpl:MinAmpl;
@@ -630,4 +636,10 @@ public:
 
 #endif // __AVR__
 
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+
 #endif // of __LDPC_H__
+

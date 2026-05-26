@@ -18,7 +18,7 @@ class CoreUtils
 {
 
     inline static uint64_t CoreUtils_offsetTimeToAbsolute = 0;
-    inline static uint32_t CoreUtils_timeUs32PpsOffset = 0;
+    inline static int32_t CoreUtils_timeUs32PpsOffset = 0;
     inline static spin_lock_t *spinLock;
 
 public:
@@ -41,7 +41,7 @@ public:
      */
     __force_inline static uint32_t timeUs32()
     {
-        return time_us_32() - CoreUtils_timeUs32PpsOffset;
+        return time_us_32() - static_cast<uint32_t>(CoreUtils_timeUs32PpsOffset);
     }
 
     __force_inline static uint32_t timeUs32Raw()
@@ -52,7 +52,7 @@ public:
     __force_inline static uint64_t timeUs64()
     {
         // time_us_64 and time_us_32 use the same hardware time, thus offset is also the same
-        return time_us_64() - CoreUtils_timeUs32PpsOffset;
+        return static_cast<uint64_t>(static_cast<int64_t>(time_us_64()) - static_cast<int64_t>(CoreUtils_timeUs32PpsOffset));
     }
 
     /**
@@ -129,13 +129,21 @@ public:
     }
 
     /**
-     * Must be called at high priority to set the PPS offset.
-     * When offset is known, the correct time in us in reference to PPS can be calculated
-     * @param offsetUs Offset in us to add to the current time_us_32 to align with PPS This can be used for software PPS adjustments
+     * Must be called from the PPS path with minimal latency.
+     *
+     * Aligns CoreUtils time functions to the PPS second boundary. At the moment this
+     * function is called, timeUs32() and timeUs64() will report offsetUs microseconds
+     * into the current PPS second. Use offsetUs for known software/interrupt latency
+     * compensation; pass 0 when called exactly on PPS.
+     *
+     * Raw time functions are not affected.
+     *
+     * @param offsetUs Desired corrected microsecond offset within the PPS second.
      */
     static void __time_critical_func(setPPS)(int32_t offsetUs)
     {
-        CoreUtils_timeUs32PpsOffset = static_cast<uint32_t>(static_cast<int64_t>(time_us_32() % 1'000'000) - static_cast<int64_t>(offsetUs));
+        const int32_t usIntoSecond = static_cast<int32_t>(time_us_32() % 1'000'000U);
+        CoreUtils_timeUs32PpsOffset = usIntoSecond - offsetUs;
     }
 
     /**
@@ -144,12 +152,12 @@ public:
      */
     static uint16_t msInSecond()
     {
-        return static_cast<uint16_t>(static_cast<uint32_t>((timeUs32() / 1'000)) % static_cast<uint32_t>(1'000));
+        return static_cast<uint16_t>(static_cast<uint32_t>(timeUs32() / 1'000) % 1'000U);
     }
 
-    static uint16_t usInSecond()
+    static uint32_t usInSecond()
     {
-        return static_cast<uint16_t>(timeUs64() % static_cast<uint64_t>(1'000'000));
+        return static_cast<uint32_t>(timeUs64() % 1'000'000U);
     }
 
     /**
@@ -199,7 +207,7 @@ public:
      */
     static uint32_t secondsSinceEpoch()
     {
-        return static_cast<uint32_t>(msSinceEpoch() / static_cast<uint64_t>(1000));
+        return static_cast<uint32_t>(msSinceEpoch() / 1000U);
     }
 
     /**
@@ -213,7 +221,7 @@ public:
 
     static uint32_t msSinceMidnight()
     {
-        return static_cast<uint32_t>(msSinceEpoch() % static_cast<uint64_t>(86'400'000));
+        return static_cast<uint32_t>(msSinceEpoch() % 86'400'000U);
     }
 
     static tm localTime()
@@ -223,7 +231,7 @@ public:
 
     static tm localTime(uint64_t msSinceEpoch)
     {
-        time_t secondsSinceEpoch = static_cast<int64_t>(msSinceEpoch / static_cast<uint64_t>(1000));
+        time_t secondsSinceEpoch = static_cast<int64_t>(msSinceEpoch / 1000U);
         struct tm timeinfo = {};
         localtime_r(&secondsSinceEpoch, &timeinfo);
         return timeinfo;
@@ -347,7 +355,7 @@ public:
     static float __time_critical_func(bearingFromInDegShort)(float east, float north)
     {
         float theta = atan2f(east, north);
-        float deg = theta * 180.f / (float)M_PI;
+        float deg = theta * 180.f / M_PIF;
         if (deg < 0.f)
         {
             deg += 360.f;
@@ -575,8 +583,8 @@ public:
         return nmea;
     }
 
-    static uint32_t getTotalHeap(void);
-    static uint32_t getFreeHeap(void);
+    static size_t getTotalHeap(void);
+    static size_t getFreeHeap(void);
 
     /**
      * Create an textual representation of the aircraftId. FOr the moment it will simply turn the aircraftID as received into a textual HEX representation
@@ -621,7 +629,9 @@ public:
     static void hexStrToByteArray(const char *hex, uint8_t byteArray[])
     {
         auto hexLength = strlen(hex);
-        if (hexLength > 254) return;
+        if (hexLength > 254) {
+            return;
+        }
         hexStrToByteArray(hex, static_cast<uint8_t>(hexLength), byteArray);
     }
 

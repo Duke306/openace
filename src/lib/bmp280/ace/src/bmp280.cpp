@@ -43,22 +43,22 @@ uint32_t Bmp280::compensate_pressure(int32_t adc_P)
 {
     int32_t var1, var2;
     uint32_t p;
-    var1 = (((int32_t)t_fine) >> 1) - (int32_t)64000;
-    var2 = (((var1 >> 2) * (var1 >> 2)) >> 11) * ((int32_t)dig_P6);
-    var2 = var2 + ((var1 * ((int32_t)dig_P5)) << 1);
-    var2 = (var2 >> 2) + (((int32_t)dig_P4) << 16);
-    var1 = (((dig_P3 * (((var1 >> 2) * (var1 >> 2)) >> 13)) >> 3) + ((((int32_t)dig_P2) * var1) >> 1)) >> 18;
-    var1 = ((((32768 + var1)) * ((int32_t)dig_P1)) >> 15);
+    var1 = (t_fine >> 1) - 64000;
+    var2 = (((var1 >> 2) * (var1 >> 2)) >> 11) * dig_P6;
+    var2 = var2 + ((var1 * dig_P5) << 1);
+    var2 = (var2 >> 2) + (dig_P4 << 16);
+    var1 = (((dig_P3 * (((var1 >> 2) * (var1 >> 2)) >> 13)) >> 3) + ((dig_P2 * var1) >> 1)) >> 18;
+    var1 = ((((32768 + var1)) * dig_P1) >> 15);
     if (var1 == 0)
         return 0;
 
-    p = static_cast<uint32_t>((((int32_t)1048576) - adc_P) - (var2 >> 12)) * 3125U;
+    p = static_cast<uint32_t>((1048576 - adc_P) - (var2 >> 12)) * 3125U;
     if (p < 0x80000000)
         p = (p << 1) / ((uint32_t)var1);
     else
         p = (p / (uint32_t)var1) * 2;
 
-    var1 = (((int32_t)dig_P9) * ((int32_t)(((p >> 3) * (p >> 3)) >> 13))) >> 12;
+    var1 = (dig_P9 * ((int32_t)(((p >> 3) * (p >> 3)) >> 13))) >> 12;
     var2 = (((int32_t)(p >> 2)) * ((int32_t)dig_P8)) >> 13;
     p = (uint32_t)((int32_t)p + ((var1 + var2 + dig_P7) >> 4));
 

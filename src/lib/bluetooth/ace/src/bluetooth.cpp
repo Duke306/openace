@@ -141,7 +141,7 @@ void Bluetooth::createAdvData()
     // bit 4 Previously Used
     advertiseData.push_back(0x06);
 
-    uint8_t maxSize = static_cast<uint8_t>(etl::min(static_cast<size_t>(8), localName.size()));
+    uint8_t maxSize = static_cast<uint8_t>(etl::min(8U, localName.size()));
     advertiseData.push_back(static_cast<uint8_t>(1 + maxSize)); // length = type + name length
     advertiseData.push_back(BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME);
     advertiseData.insert(advertiseData.end(), localName.begin(), localName.begin() + maxSize);

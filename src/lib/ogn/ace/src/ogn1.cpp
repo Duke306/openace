@@ -80,13 +80,13 @@ uint8_t Ogn1::errorCorrect(uint8_t *output, uint8_t *data, uint8_t *err, uint8_t
     Ogn1::decoder.Input(data, err);                      // put data into the FEC decoder
     do                                                   // more loops is more chance to recover the packet
     {
-        check = static_cast<uint8_t>(decoder.ProcessChecks()); // do an iteration
+        check = decoder.ProcessChecks(); // do an iteration
     } while ((iter--) && check); // if FEC all fine: break
     Ogn1::decoder.Output(output); // get corrected bytes into the OGN packet
     errCount += ErrCount(output, data, err, OGN_PACKET_LENGTH);
 
-    errCount = etl::min(errCount, (uint8_t)15);
-    check = etl::min(check, (uint8_t)15);
+    errCount = etl::min(errCount, static_cast<uint8_t>(15));
+    check = etl::min(check, static_cast<uint8_t>(15));
     return (check & 0x0F) | (errCount << 4);
 }
 

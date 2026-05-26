@@ -6,6 +6,13 @@
 
 #include <stdint.h>
 
+// We would like to have this enabled, but it's hard to fix this correctly since there are not tests available.
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
+
 uint16_t EncodeUR2V8(uint16_t Value);                                 // Encode unsigned 12bit (0..3832) as 10bit
 uint16_t DecodeUR2V8(uint16_t Value);                                 // Decode 10bit 0..0x3FF
 
@@ -30,47 +37,47 @@ uint8_t DecodeUR2V4(uint8_t DOP);
 template <class Type, int Bits>
 Type UnsVRdecode(Type Value)
 {
-    const Type Thres = static_cast<Type>(1 << Bits);
-    uint8_t Range = static_cast<uint8_t>(Value >> Bits);
-    Value &= static_cast<Type>(Thres - 1);
-    if(Range==0) return Value;
-    if(Range==1) return static_cast<Type>(Thres + 1 + (Value << 1));
-    if(Range==2) return static_cast<Type>(3 * Thres + 2 + (Value << 2));
-    return static_cast<Type>(7 * Thres + 4 + (Value << 3));
+    const Type Thres = 1<<Bits;
+    uint8_t Range = Value>>Bits;
+    Value &= Thres-1;
+    if(Range==0) return            Value;
+    if(Range==1) return   Thres+1+(Value<<1);
+    if(Range==2) return 3*Thres+2+(Value<<2);
+    return 7*Thres+4+(Value<<3);
 }
 
 template <class Type, int Bits>
 Type UnsVRencode(Type Value)
 {
-    const Type Thres = static_cast<Type>(1 << Bits);
-    if(Value<   Thres) return Value;
-    if(Value< 3*Thres) return static_cast<Type>(Thres | ((Value - Thres) >> 1));
-    if(Value< 7*Thres) return static_cast<Type>(2 * Thres | ((Value - 3 * Thres) >> 2));
-    if(Value<15*Thres) return static_cast<Type>(3 * Thres | ((Value - 7 * Thres) >> 3));
-    return static_cast<Type>(4 * Thres - 1);
+    const Type Thres = 1<<Bits;
+    if(Value<   Thres) return             Value;
+    if(Value< 3*Thres) return   Thres | ((Value-  Thres)>>1);
+    if(Value< 7*Thres) return 2*Thres | ((Value-3*Thres)>>2);
+    if(Value<15*Thres) return 3*Thres | ((Value-7*Thres)>>3);
+    return 4*Thres-1;
 }
 
 template <class Type, int Bits>
 Type SignVRencode(Type Value)
 {
-    const Type SignMask = static_cast<Type>(1 << (Bits + 2));
+    const Type SignMask = 1<<(Bits+2);
     Type Sign=0;
     if(Value<0)
     {
-        Value = static_cast<Type>(-Value);
+        Value=(-Value);
         Sign=SignMask;
     }
     Value = UnsVRencode<Type, Bits>(Value);
-    return static_cast<Type>(Value | Sign);
+    return Value | Sign;
 }
 
 template <class Type, int Bits>
 Type SignVRdecode(Type Value)
 {
-    const Type SignMask = static_cast<Type>(1 << (Bits + 2));
-    Type Sign = static_cast<Type>(Value & SignMask);
-    Value = UnsVRdecode<Type, Bits>(static_cast<Type>(Value & static_cast<Type>(SignMask - 1)));
-    return Sign ? static_cast<Type>(-Value) : Value;
+    const Type SignMask = 1<<(Bits+2);
+    Type Sign = Value&SignMask;
+    Value = UnsVRdecode<Type, Bits>(Value&(SignMask-1));
+    return Sign ? -Value: Value;
 }
 
 uint8_t EncodeGray(uint8_t Binary);
@@ -82,3 +89,7 @@ uint32_t DecodeGray(uint32_t Gray);
 
 uint8_t EncodeAscii85(    char *Ascii, uint32_t    Word );  // Encode 32-bit Word into 5-char Ascii-85 string
 uint8_t DecodeAscii85(uint32_t &Word,  const char *Ascii);  // Decode 5-char Ascii-85 to 32-bit Word
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif

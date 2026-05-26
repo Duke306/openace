@@ -22,7 +22,7 @@
  * Client that can connect to a host and a port and expect to receive line terminated NMEA Messages
  * Part of this code taken from the example from Raspbery
  */
-class AircraftTracker : public BaseModule, public etl::message_router<AircraftTracker, GATAS::ConfigUpdatedMsg, GATAS::RadioTxPositionRequestMsg, GATAS::IngressAircraftPositionMsg, GATAS::IngressAircraftPositionsMsg, GATAS::Every5SecMsg>
+class AircraftTracker : public BaseModule, public etl::message_router<AircraftTracker, GATAS::ConfigUpdatedMsg, GATAS::RadioTxPositionRequestMsg, GATAS::IngressAircraftPositionMsg, GATAS::IngressAircraftPositionsMsg, GATAS::OwnshipPositionMsg, GATAS::Every5SecMsg>
 {
 private:
     mutable SemaphoreHandle_t trackedAircraftMutex = nullptr;
@@ -61,6 +61,7 @@ private:
     TaskHandle_t taskHandle = nullptr;
     TrackerData<MAX_TRACKING_PLANES, TIMESLICES> trackedAircraft;
     GATAS::AircraftAddress ownshipAddress;
+    float ownshipTrack = 0.f;
     bool groundStation_ = false;
 
     // Producer Consumer queue to handle data between this task and the send task
@@ -82,6 +83,7 @@ private:
     void on_receive(const GATAS::ConfigUpdatedMsg &msg);
     void on_receive(const GATAS::IngressAircraftPositionMsg &msg);
     void on_receive(const GATAS::IngressAircraftPositionsMsg &msg);
+    void on_receive(const GATAS::OwnshipPositionMsg &msg);
     void on_receive(const GATAS::RadioTxPositionRequestMsg &msg);
     void on_receive(const GATAS::Every5SecMsg &msg);
     static void aircraftTrackerTrampoline(void *arg);

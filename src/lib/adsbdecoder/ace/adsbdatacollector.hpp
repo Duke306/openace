@@ -87,6 +87,7 @@ class AdsbDataCollector
     static constexpr uint8_t HAS_VELOCITY = 1 << 3;
     static constexpr uint8_t HAS_ALTITUDE = 1 << 4; //
     static constexpr uint8_t HAS_POSITION_UPDATED = 1 << 5;
+    static constexpr uint8_t NOT_HAS_POSITION_UPDATED = static_cast<uint8_t>(~HAS_POSITION_UPDATED);
     static constexpr uint8_t CHECK_HAS_CALLSIGN = 1 << 6;
     static constexpr uint8_t VALID_MASK = HAS_POSITION_ODD | HAS_POSITION_EVEN | HAS_HEADING | HAS_VELOCITY | HAS_ALTITUDE | HAS_POSITION_UPDATED;
 
@@ -249,7 +250,7 @@ public:
     {
         if ((currentDataStatus->messageStatus & VALID_MASK) == VALID_MASK)
         {
-            currentDataStatus->messageStatus &= static_cast<uint8_t>(~HAS_POSITION_UPDATED);
+            currentDataStatus->messageStatus &= NOT_HAS_POSITION_UPDATED;
             return true;
         }
 

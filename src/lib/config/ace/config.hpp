@@ -33,7 +33,7 @@ private:
     struct
     {
         LoadLocation location = NA;
-        uint16_t persistentStoreSize = 0;
+        size_t persistentStoreSize = 0;
     } statistics;
 
     etl::string_view loadLocationToString(LoadLocation location) const;

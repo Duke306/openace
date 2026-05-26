@@ -70,7 +70,7 @@ bool Idle::blinkCb(repeating_timer_t *t)
         idle->patternStep = Idle::PATTERN_STEPS;
     }
     idle->patternStep--;
-    gpio_put(static_cast<uint>(idle->ledStatusIndicatorPin), idle->runningPattern & 0b1U);
+    gpio_put(idle->ledStatusIndicatorPin, idle->runningPattern & 0b1U);
 
     idle->runningPattern >>= 1;
     return true;

@@ -119,6 +119,11 @@ void AircraftTracker::on_receive(const GATAS::IngressAircraftPositionsMsg &msg)
     xTaskNotify(taskHandle, TaskState::NEW, eSetBits);
 }
 
+void AircraftTracker::on_receive(const GATAS::OwnshipPositionMsg &msg)
+{
+    ownshipTrack = msg.position.track;
+}
+
 void AircraftTracker::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
 {
     // radioParameters.id == 1 means O-Band Uplink
@@ -145,7 +150,7 @@ void AircraftTracker::on_receive(const GATAS::IngressAircraftPositionMsg &msg)
     uint8_t dataSource = static_cast<uint8_t>(msg.position.dataSource);
     if (dataSource < antennaRadiationPattern.size())
     {
-        antennaRadiationPattern[dataSource].put(msg);
+        antennaRadiationPattern[dataSource].put(msg, ownshipTrack);
     }
 
     if (!queue.full())

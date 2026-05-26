@@ -38,8 +38,8 @@ public:
     static constexpr size_t OGN_PACKET_LENGTH_FEC = 26;
 
 private:
-    static constexpr int DEFAULT_IGNORE_DISTANCE = 25000;
-    static constexpr int MAX_IGNORE_DISTANCE = 100000;
+    static constexpr uint32_t DEFAULT_IGNORE_DISTANCE = 25000;
+    static constexpr uint32_t MAX_IGNORE_DISTANCE = 100000;
     friend class message_router;
 
     struct OGNAircraftType
@@ -107,8 +107,8 @@ public:
     static constexpr const etl::string_view NAME = "Ogn1";
     Ogn1(etl::imessage_bus &bus, const Configuration &config) : BaseModule(bus, NAME)
     {
-        auto di = config.valueByPath(DEFAULT_IGNORE_DISTANCE, "Ogn1", "distanceIgnore");
-        distanceIgnore = static_cast<uint32_t>(etl::max(0, etl::min(di, MAX_IGNORE_DISTANCE)));
+        auto di = static_cast<uint32_t>(config.valueByPath(DEFAULT_IGNORE_DISTANCE, NAME, "distanceIgnore"));
+        distanceIgnore = etl::clamp(di, static_cast<uint32_t>(0), MAX_IGNORE_DISTANCE);
     }
 
     virtual ~Ogn1() = default;

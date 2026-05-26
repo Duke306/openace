@@ -26,7 +26,7 @@ class PioSerial
     using CallBackFunction = etl::delegate<void(const etl::array_view<char>&)>;
 
 private:
-    static constexpr etl::array<uint32_t, 5> commonBaudrates{ 115200U, 9600U, 19200U, 38400U, 57600U };
+    static constexpr etl::array commonBaudrates{ 115200U, 9600U, 19200U, 38400U, 57600U };
 
 
     static void pio0_irq0_func_handler()
