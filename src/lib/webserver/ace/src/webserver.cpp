@@ -240,7 +240,7 @@ int fs_open_custom(fs_file *file, const char *name)
         module->getData(stream, pathString);
 
         file->data = (const char *)file->pextension;
-        file->len = response.size();
+        file->len = static_cast<int>(response.size());
         file->index = file->len; // We set index to len to indicate that the complete file has been read and the server can send and close the response
         // file->flags = FS_FILE_FLAGS_HEADER_PERSISTENT;
         return 1;

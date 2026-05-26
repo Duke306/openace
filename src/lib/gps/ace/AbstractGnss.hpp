@@ -43,7 +43,7 @@ private:
     static void receiveTask(void *arg);
 
     PioSerial pioSerial;
-    const int8_t ppsPin;
+    const uint8_t ppsPin;
     bool softwarebasedPPS;
     int32_t softPPSlagUs;
     uint32_t measureSoftPPSlag = 0;

@@ -74,7 +74,7 @@ GATAS::PostConstruct Config::postConstruct()
         else
         {
             statistics.location = PERSISTENT;
-            statistics.persistentStoreSize = strlen((const char *)permanentStore.data()) + 1;
+            statistics.persistentStoreSize = static_cast<uint16_t>(strlen((const char *)permanentStore.data()) + 1);
             serializeToVolatile();
         }
     }
@@ -252,7 +252,7 @@ void Config::serializeToPersistent()
 
     permanentStore.rewind();
     permanentStore.write(volatileStore.data(), strlen((const char *)volatileStore.data()) + 1);
-    statistics.persistentStoreSize = strlen((char *)permanentStore.data()) + 1;
+    statistics.persistentStoreSize = static_cast<uint16_t>(strlen((char *)permanentStore.data()) + 1);
 }
 
 bool Config::deleteData(const etl::string_view fullPath)
@@ -266,7 +266,7 @@ bool Config::deleteData(const etl::string_view fullPath)
         auto array = src.as<JsonArray>();
         if (array)
         {
-            src.remove(idx.value());
+            src.remove(static_cast<size_t>(idx.value()));
             dataMutated = true;
         }
     }

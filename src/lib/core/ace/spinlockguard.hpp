@@ -29,7 +29,7 @@ public:
      */
     static spin_lock_t *claim(bool required = true)
     {
-        return spin_lock_instance(spin_lock_claim_unused(required));
+        return spin_lock_instance((uint)spin_lock_claim_unused(required));
     }
 
     SpinlockGuard(const SpinlockGuard &) = delete;

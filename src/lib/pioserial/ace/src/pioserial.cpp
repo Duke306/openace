@@ -11,7 +11,7 @@ etl::array<PioSerial*, 4> PioSerial::interruptHandlers;
 
 GATAS::PostConstruct PioSerial::postConstruct()
 {
-    if (rxPin == -1 || txPin == -1)
+    if (rxPin == UINT8_MAX || txPin == UINT8_MAX)
     {
         return GATAS::PostConstruct::HARDWARE_NOT_CONFIGURED;
     }
@@ -76,7 +76,7 @@ void PioSerial::start()
 {
     // Enable interrupt
     uint8_t pio_irq = (rxPio == pio0) ? PIO0_IRQ_0 : PIO1_IRQ_0; // pio_irq will become 7,8,9,10
-    uint8_t irq_index = pio_irq - ((rxPio == pio0) ? PIO0_IRQ_0 : PIO1_IRQ_0);
+    uint8_t irq_index = static_cast<uint8_t>(pio_irq - ((rxPio == pio0) ? PIO0_IRQ_0 : PIO1_IRQ_0));
     irq_add_shared_handler(pio_irq, handler, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY);                                     // Add a shared IRQ handler
     irq_set_enabled(pio_irq, true);                                                                                               // Enable the IRQ
     pio_set_irqn_source_enabled(rxPio, irq_index, static_cast<pio_interrupt_source>(pis_sm0_rx_fifo_not_empty + rxSmIndx), true); // Set pio to tell us when the FIFO is NOT empty
@@ -92,7 +92,7 @@ bool PioSerial::enableRx()
         {
             return false;
         }
-        uart_rx_program_init(rxPio, rxSmIndx, rxOffset, rxPin, baudrate);
+        uart_rx_program_init(rxPio, static_cast<uint>(rxSmIndx), rxOffset, rxPin, baudrate);
     }
     return true;
 }
@@ -103,9 +103,9 @@ void PioSerial::disableRx()
     if (rxPio != nullptr)
     {
         // Cleanup Pio
-        pio_sm_set_enabled(rxPio, rxSmIndx, false);
+        pio_sm_set_enabled(rxPio, static_cast<uint>(rxSmIndx), false);
         pio_remove_program(rxPio, &uart_rx_program, rxOffset);
-        pio_sm_unclaim(rxPio, rxSmIndx);
+        pio_sm_unclaim(rxPio, static_cast<uint>(rxSmIndx));
 
         // Remove the handler
         rxSmIndx = -1;
@@ -133,9 +133,9 @@ void __isr __time_critical_func(PioSerial::pio_irq_func)(uint8_t irqHandlerIndex
         return;
     }
 
-    while (!pio_sm_is_rx_fifo_empty(pioSerial->rxPio, pioSerial->rxSmIndx))
+    while (!pio_sm_is_rx_fifo_empty(pioSerial->rxPio, static_cast<uint>(pioSerial->rxSmIndx)))
     {
-        uint32_t data = pio_sm_get(pioSerial->rxPio, pioSerial->rxSmIndx);
+        uint32_t data = pio_sm_get(pioSerial->rxPio, static_cast<uint>(pioSerial->rxSmIndx));
         char *bytePtr = (char *)&data;
         for (int i = 0; i < 4; i++)
         {
@@ -167,12 +167,12 @@ void __isr __time_critical_func(PioSerial::pio_irq_func)(uint8_t irqHandlerIndex
 
 void PioSerial::sendBlocking(const uint8_t *data, uint16_t length)
 {
-    uart_tx_program_put(txPio, txSmIndx, data, length);
+    uart_tx_program_put(txPio, static_cast<uint>(txSmIndx), data, length);
 }
 
 void PioSerial::sendBlocking(const etl::string_view &data)
 {
-    uart_tx_program_put(txPio, txSmIndx, (uint8_t *)data.cbegin(), data.size());
+    uart_tx_program_put(txPio, static_cast<uint>(txSmIndx), (uint8_t *)data.cbegin(), data.size());
 }
 
 bool PioSerial::enableTx(uint32_t givenBaudRate)
@@ -185,7 +185,7 @@ bool PioSerial::enableTx(uint32_t givenBaudRate)
             return false;
         }
     }
-    uart_tx_program_init(txPio, txSmIndx, txOffset, txPin, givenBaudRate);
+    uart_tx_program_init(txPio, static_cast<uint>(txSmIndx), txOffset, txPin, givenBaudRate);
     return true;
 }
 
@@ -193,9 +193,9 @@ void PioSerial::disableTx()
 {
     if (txPio != nullptr)
     {
-        pio_sm_set_enabled(txPio, txSmIndx, false);
+        pio_sm_set_enabled(txPio, static_cast<uint>(txSmIndx), false);
         pio_remove_program(txPio, &uart_tx_program, txOffset);
-        pio_sm_unclaim(txPio, txSmIndx);
+        pio_sm_unclaim(txPio, static_cast<uint>(txSmIndx));
 
         txPio = nullptr;
         txOffset = 0;
@@ -207,8 +207,8 @@ bool PioSerial::setBaudRate(uint32_t baudRate)
 {
     if (rxPio != nullptr)
     {
-        pio_sm_set_enabled(rxPio, rxSmIndx, false);
-        uart_rx_program_init(rxPio, rxSmIndx, rxOffset, rxPin, baudRate);
+        pio_sm_set_enabled(rxPio, static_cast<uint>(rxSmIndx), false);
+        uart_rx_program_init(rxPio, static_cast<uint>(rxSmIndx), rxOffset, rxPin, baudRate);
         return true;
     }
     return false;
@@ -223,7 +223,7 @@ bool PioSerial::testUartAtBaudrate(uint32_t testBaudRate, uint32_t maximumScanTi
     {
         setBaudRate(testBaudRate);
 //        printf("Baud: tx:%d rx:%d %ld ", txPin, rxPin, testBaudRate);
-        uint8_t status = uart_rx_program_test(rxPio, rxSmIndx, 0x0a, 0x80, maximumScanTimeMs, numcharsConsideringValid);
+        uint8_t status = uart_rx_program_test(rxPio, static_cast<uint>(rxSmIndx), 0x0a, 0x80, maximumScanTimeMs, numcharsConsideringValid);
 //        printf(" uart: %d\n", status);
         setBaudRate(baudrate);
         return status == 0;
@@ -249,5 +249,5 @@ uint32_t PioSerial::findBaudRate(uint32_t maxTimeOutMs)
 
 void PioSerial::rxFlush()
 {
-    uart_rx_flush(rxPio, rxSmIndx);
+    uart_rx_flush(rxPio, static_cast<uint>(rxSmIndx));
 }

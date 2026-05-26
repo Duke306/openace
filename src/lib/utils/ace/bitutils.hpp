@@ -7,27 +7,27 @@
 // http://stackoverflow.com/questions/109023/how-to-count-the-number-of-set-bits-in-a-32-bit-integer
 inline uint8_t Count1s(uint8_t Byte)
 {
-    return __builtin_popcount(Byte);
+    return (uint8_t)__builtin_popcount(Byte);
 }
 
 inline uint8_t Count1s(uint16_t Word)
 {
-    return __builtin_popcount(Word);
+    return (uint8_t)__builtin_popcount(Word);
 }
 
 inline uint8_t Count1s(uint32_t LongWord)
 {
-    return __builtin_popcountl(LongWord);
+    return (uint8_t)__builtin_popcountl(LongWord);
 }
 
 inline uint8_t Count1s(int32_t LongWord)
 {
-    return __builtin_popcountl(LongWord);
+    return (uint8_t)__builtin_popcountl((uint32_t)LongWord);
 }
 
 inline uint8_t Count1s(uint64_t LongWord)
 {
-    return __builtin_popcountll(LongWord);
+    return (uint8_t)__builtin_popcountll(LongWord);
 }
 
 inline uint8_t Count1s(int64_t LongWord)

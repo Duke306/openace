@@ -13,12 +13,12 @@ bool add_pio_program(const pio_program_t *program, PIO *pio_hw, int *sm, uint *o
         *pio_hw = pio1;
         if (!pio_can_add_program(*pio_hw, program))
         {
-            *offset = -1;
+            *offset = UINT8_MAX;
             return false;
         }
     }
-    *offset = pio_add_program(*pio_hw, program);
-    *sm = (int8_t)pio_claim_unused_sm(*pio_hw, false);
+    *offset = static_cast<uint>(pio_add_program(*pio_hw, program));
+    *sm = pio_claim_unused_sm(*pio_hw, false);
     if (*sm < 0)
     {
         return false;

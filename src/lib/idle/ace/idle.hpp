@@ -55,7 +55,7 @@ public:
                                                                 patternStep(Idle::PATTERN_STEPS),
                                                                 runningPattern(0x11111111)
     {
-        ledStatusIndicatorPin = config.valueByPath(26, "port5", "O0");
+        ledStatusIndicatorPin = static_cast<int8_t>(config.valueByPath(26, "port5", "O0"));
         (void)config;
     }
 

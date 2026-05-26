@@ -109,7 +109,7 @@ void ADSBDecoder::processAdsbData(const uint8_t *data, uint8_t length)
 
             // THis might temporary create a incorrect offset, but should be corrected pretty quickly die to how ADSB sends different information in different packages
             // In addition this is also not the true altitude
-            int32_t altitude = (mm.unit == MODE_S_UNIT_METERS ? mm.altitude : mm.altitude * FT_TO_M);
+            int32_t altitude = mm.unit == MODE_S_UNIT_METERS ? mm.altitude : static_cast<int32_t>(static_cast<float>(mm.altitude) * FT_TO_M);
 
             if (mm.metype >= 20 && mm.metype <= 22) // GPS Altitude so far never seen this
             {
@@ -126,7 +126,7 @@ void ADSBDecoder::processAdsbData(const uint8_t *data, uint8_t length)
             if (mm.mesub == 1 || mm.mesub == 2)
             {
                 // printf("%06lX Ellipsoid:%ldm\n", mm.aa, baro_gnss_diff);
-                adsbDataCollector.updateVelocityHeadingBaroDiff(mm.velocity, mm.vert_rate_sign ? -mm.vert_rate : mm.vert_rate, mm.heading, mm.head * FT_TO_M); // mm.head is always in feet
+                adsbDataCollector.updateVelocityHeadingBaroDiff(mm.velocity, mm.vert_rate_sign ? -mm.vert_rate : mm.vert_rate, mm.heading, static_cast<int16_t>(static_cast<float>(mm.head) * FT_TO_M)); // mm.head is always in feet
             }
             else if (mm.mesub == 3 || mm.mesub == 4)
             {

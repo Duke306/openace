@@ -212,7 +212,7 @@ public:
     // Centripetal acceleration
     static int16_t calcCPaccel(int16_t Speed, int16_t TurnRate)
     {
-        return ((int32_t)TurnRate*Speed*229+0x10000)>>17;    // [0.1m/s^2]
+        return static_cast<int16_t>(((static_cast<int32_t>(TurnRate) * Speed * 229) + 0x10000) >> 17);    // [0.1m/s^2]
     }
     int16_t calcCPaccel(void)
     {
@@ -227,7 +227,7 @@ public:
         Radius /= TurnRate;
         Radius = (Radius+128)>>8;
         if (etl::absolute(Radius)>MaxRadius) return 0;
-        return Radius;
+        return static_cast<int16_t>(Radius);
     }
     int16_t calcTurnRadius(int16_t MaxRadius=0x7FFF)
     {
@@ -264,7 +264,7 @@ public:
 
     void EncodeLatitude(int32_t Latitude)                                // encode Latitude: units are 0.0001/60 degrees
     {
-        Position.Latitude = Latitude>>3;
+        Data[0] = (Data[0] & 0xFF000000U) | (static_cast<uint32_t>(Latitude >> 3) & 0x00FFFFFFU);
     }
 
     int32_t DecodeLatitude(void) const
@@ -277,7 +277,7 @@ public:
 
     void EncodeLongitude(int32_t Longitude)                             // encode Longitude: units are 0.0001/60 degrees
     {
-        Position.Longitude = Longitude>>=4;
+        Data[1] = (Data[1] & 0xFF000000U) | (static_cast<uint32_t>(Longitude >> 4) & 0x00FFFFFFU);
     }
 
     int32_t DecodeLongitude(void) const
@@ -299,7 +299,7 @@ public:
     int16_t getBaroAltDiff(void) const
     {
         int16_t AltDiff=Position.BaroAltDiff;
-        if (Position.BaroMSB==0) AltDiff|=0xFF00;
+        if (Position.BaroMSB==0) AltDiff |= static_cast<int16_t>(0xFF00);
         return AltDiff;
     }
     void setBaroAltDiff(int32_t AltDiff)
@@ -325,7 +325,7 @@ public:
     void EncodeAltitude(int32_t Altitude)                               // encode altitude in meters
     {
         if (Altitude<0)      Altitude=0;
-        Position.Altitude = UnsVRencode<uint16_t, 12>((uint16_t)Altitude);
+        Position.Altitude = static_cast<uint16_t>(UnsVRencode<uint16_t, 12>(static_cast<uint16_t>(Altitude)) & 0x3FFFU);
     }
 //     Position.Altitude = EncodeUR2V12((uint16_t)Altitude); }
 
@@ -337,43 +337,43 @@ public:
 
     void EncodeDOP(uint8_t DOP)
     {
-        Position.DOP = UnsVRencode<uint8_t, 4>(DOP);
+        Position.DOP = static_cast<uint8_t>(UnsVRencode<uint8_t, 4>(DOP) & 0x3FU);
     }
 //   { Position.DOP = EncodeUR2V4(DOP); }
 
     uint8_t DecodeDOP(void) const
     {
-        return UnsVRdecode<uint8_t, 4>(Position.DOP);
+        return static_cast<uint8_t>(UnsVRdecode<uint8_t, 4>(Position.DOP));
     }
 //   { return DecodeUR2V4(Position.DOP); }
 
     void EncodeSpeed(int16_t Speed)                                       // speed in 0.2 knots (or 0.1m/s)
     {
         if (Speed<0) Speed=0;
-        else Speed = UnsVRencode<uint16_t, 8>(Speed); // EncodeUR2V8(Speed);
-        Position.Speed = Speed;
+        else Speed = static_cast<int16_t>(UnsVRencode<uint16_t, 8>(static_cast<uint16_t>(Speed))); // EncodeUR2V8(Speed);
+        Position.Speed = static_cast<uint16_t>(static_cast<uint16_t>(Speed) & 0x03FFU);
     }
 
     int16_t DecodeSpeed(void) const           // return speed in 0.2 knots or 0.1m/s units
     {
-        return UnsVRdecode<uint16_t, 8>(Position.Speed);
+        return static_cast<int16_t>(UnsVRdecode<uint16_t, 8>(Position.Speed));
     }
 //   { return DecodeUR2V8(Position.Speed); }   // => max. speed: 3832*0.2 = 766 knots
 
     int16_t DecodeHeading(void) const         // return Heading in 0.1 degree units 0..359.9 deg
     {
         int32_t Heading = Position.Heading;
-        return (Heading*3600+512)>>10;
+        return static_cast<int16_t>((Heading * 3600 + 512) >> 10);
     }
 
     void EncodeHeading(int16_t Heading)
     {
-        Position.Heading = (((int32_t)Heading<<10)+180)/3600;
+        Position.Heading = static_cast<uint16_t>(static_cast<uint16_t>(((static_cast<int32_t>(Heading) << 10) + 180) / 3600) & 0x03FFU);
     }
 
     void setHeadingAngle(uint16_t HeadingAngle)
     {
-        Position.Heading = (((HeadingAngle+32)>>6));
+        Position.Heading = static_cast<uint16_t>(static_cast<uint16_t>((HeadingAngle + 32) >> 6) & 0x03FFU);
     }
 
     uint16_t getHeadingAngle(void) const
@@ -411,7 +411,7 @@ public:
 
     void EncodeClimbRate(int16_t Climb)
     {
-        Position.ClimbRate = EncodeSR2V6(Climb);
+        Position.ClimbRate = static_cast<uint16_t>(EncodeSR2V6(Climb) & 0x01FFU);
     }
 
     int16_t DecodeClimbRate(void) const
@@ -441,7 +441,7 @@ public:
 
     void EncodeVoltage(uint16_t Voltage)
     {
-        Status.Voltage=EncodeUR2V6(Voltage);    // [1/64V]
+        Status.Voltage = static_cast<uint8_t>(EncodeUR2V6(Voltage));    // [1/64V]
     }
     uint16_t DecodeVoltage(void) const
     {
@@ -462,7 +462,7 @@ public:
     }
     uint16_t DecodeHumidity(void) const
     {
-        return 520+DecodeSR2V5(Status.Humidity);
+        return static_cast<uint16_t>(520 + DecodeSR2V5(Status.Humidity));
     }
 
 // --------------------------------------------------------------------------------------------------------------
@@ -490,7 +490,7 @@ public:
         uint8_t Msk1 = 0xFF;
         Msk1<<=Ofs;
         uint8_t Msk2 = 0x01;
-        Msk2 = (Msk2<<Len2)-1;
+        Msk2 = static_cast<uint8_t>((Msk2 << Len2) - 1);
         Info.Data[Idx  ] = (Info.Data[Idx  ]&(~Msk1)) | (Char<<Ofs);
         Info.Data[Idx+1] = (Info.Data[Idx+1]&(~Msk2)) | (Char>>Len1);
     }
@@ -528,7 +528,7 @@ public:
             Len += 1;
         }
         setInfoChar(InfoType, Idx);                         // terminating character
-        Info.DataChars=Idx;                                 // update number of characters
+        Info.DataChars = static_cast<uint8_t>(Idx & 0x0FU);                                 // update number of characters
         return Len+1;
     }                                     // return number of added Value characters
 

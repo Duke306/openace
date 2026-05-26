@@ -40,7 +40,7 @@ uint32_t CoreUtils::getTotalHeap(void)
     return 0;
 #else
     extern char __StackLimit, __bss_end__;
-    return &__StackLimit - &__bss_end__;
+    return static_cast<uint32_t>(&__StackLimit - &__bss_end__);
 #endif
 }
 
@@ -61,14 +61,14 @@ int8_t CoreUtils::egmGeoidOffset(float lat, float lon)
     // Convert directly to index space
     constexpr float invRes = 1.0f / egm2008_resolution_deg;
 
-    const int lat_idx = static_cast<int>((egm2008_max_lat - lat) * invRes + 0.5f);
-    const int lon_idx = static_cast<int>((lon - egm2008_min_lon) * invRes + 0.5f);
+    const int32_t lat_idx = static_cast<int32_t>((egm2008_max_lat - lat) * invRes + 0.5f);
+    const int32_t lon_idx = static_cast<int32_t>((lon - egm2008_min_lon) * invRes + 0.5f);
 
     // Single bounds check (fast path)
-    if ((unsigned)lat_idx >= egm2008_lat_steps || (unsigned)lon_idx >= egm2008_lon_steps)
+    if ((uint32_t)lat_idx >= egm2008_lat_steps || (uint32_t)lon_idx >= egm2008_lon_steps)
     {
         return 0;
     }
 
-    return egm2008s_dem[lon_idx][lat_idx];
+    return egm2008s_dem[static_cast<size_t>(lon_idx)][static_cast<size_t>(lat_idx)];
 }

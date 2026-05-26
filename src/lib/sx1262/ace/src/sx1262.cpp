@@ -138,7 +138,7 @@ void Sx1262::on_receive(const GATAS::ConfigUpdatedMsg &msg)
     if (msg.moduleName == Sx1262::NAMES[radioNo])
     {
         txEnabled = msg.config.valueByPath(true, Sx1262::NAMES[radioNo], "txEnabled");
-        offsetHz = msg.config.valueByPath(true, Sx1262::NAMES[radioNo], "offset");
+        offsetHz = static_cast<uint32_t>(msg.config.valueByPath(true, Sx1262::NAMES[radioNo], "offset"));
     }
     groundStation = msg.config.gaTasConfig().conspicuity.groundStation;
 }
@@ -279,7 +279,7 @@ void Sx1262::configureSx1262(const GATAS::RadioParameters &newParameters, uint8_
                 // TX Config
                 syncLengthBits = newParameters.config->syncLength;
                 syncData = newParameters.config->syncWord.data();
-                pkt_params_gfsk.pld_len_in_bytes = payloadLength * (newParameters.config->manchester ? 2 : 1);
+                pkt_params_gfsk.pld_len_in_bytes = static_cast<uint8_t>(payloadLength * (newParameters.config->manchester ? 2 : 1));
 
                 // Variable payload test (0 is true)
                 if (newParameters.config->packetLength == 0) // When newParameters.config->packetLength == 0, this means variable payload
@@ -302,7 +302,7 @@ void Sx1262::configureSx1262(const GATAS::RadioParameters &newParameters, uint8_
                 }
                 else
                 {
-                    pkt_params_gfsk.pld_len_in_bytes = newParameters.config->packetLength * (newParameters.config->manchester ? 2 : 1);
+                    pkt_params_gfsk.pld_len_in_bytes = static_cast<uint8_t>(newParameters.config->packetLength * (newParameters.config->manchester ? 2 : 1));
                 }
             }
 
@@ -310,7 +310,7 @@ void Sx1262::configureSx1262(const GATAS::RadioParameters &newParameters, uint8_
             pkt_params_gfsk.preamble_len_in_bits = newParameters.config->txPreambleLength; // In addition to this length, there is also 16 bit preamble specific for nRF905 added to the syncword. This will works fine for an SX1262
             pkt_params_gfsk.sync_word_len_in_bits = syncLengthBits;
             sx126x_set_gfsk_pkt_params(this, &pkt_params_gfsk);
-            sx126x_set_gfsk_sync_word(this, syncData, (syncLengthBits + 7) / 8);
+            sx126x_set_gfsk_sync_word(this, syncData, static_cast<uint8_t>((syncLengthBits + 7) / 8));
         }
         else if (newParameters.frequency->mode == GATAS::Modulation::LORA)
         {
@@ -612,18 +612,18 @@ void Sx1262::sendPacket(const TxPacket &txPacket)
                 return;
             }
             uint8_t manchesterFrame[GATAS::RADIO_MAX_TX_GFSK_FRAME_LENGTH * MANCHESTER];
-            manchesterEncode(manchesterFrame, txPacket.frame, txPacket.length);
-            sendGFSKPacket(txPacket.radioParameters, manchesterFrame, txPacket.length * MANCHESTER);
+            manchesterEncode(manchesterFrame, txPacket.frame, static_cast<uint8_t>(txPacket.length));
+            sendGFSKPacket(txPacket.radioParameters, manchesterFrame, static_cast<uint8_t>(txPacket.length * MANCHESTER));
         }
         else
         {
-            sendGFSKPacket(txPacket.radioParameters, txPacket.frame, txPacket.length);
+            sendGFSKPacket(txPacket.radioParameters, txPacket.frame, static_cast<uint8_t>(txPacket.length));
         }
     }
     else if (txPacket.radioParameters.frequency->mode == GATAS::Modulation::LORA)
     {
         GATAS_MEASURE("sendLORAPacket", 100);
-        sendLORAPacket(txPacket.radioParameters, txPacket.frame, txPacket.length);
+        sendLORAPacket(txPacket.radioParameters, txPacket.frame, static_cast<uint8_t>(txPacket.length));
     }
 }
 
@@ -709,7 +709,7 @@ void Sx1262::sx1262Task(void *arg)
                     GATAS_MEASURE("Send Radio:", 1500, radioNo);
                     // GATAS_INFO("%8ld TX Packet ds:%s", CoreUtils::timeUs32Raw() / 1000, GATAS::toString(txPacket.radioParameters.config->dataSource()));
                     keepTransmittingUntill = CoreUtils::timeUs32Raw() + 55000; // 55ms is longest packet expect (LORA)
-                    configureSx1262(txPacket.radioParameters, txPacket.length);
+                    configureSx1262(txPacket.radioParameters, static_cast<uint8_t>(txPacket.length));
                     sendPacket(txPacket);
                     continue; // Need to wait for TX done
                 }

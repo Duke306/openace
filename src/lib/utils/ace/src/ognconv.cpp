@@ -8,9 +8,9 @@
 uint16_t EncodeUR2V8(uint16_t Value)                                 // Encode unsigned 12bit (0..3832) as 10bit
 {
     if(Value<0x100) { }
-    else if(Value<0x300) Value = 0x100 | ((Value-0x100)>>1);
-    else if(Value<0x700) Value = 0x200 | ((Value-0x300)>>2);
-    else if(Value<0xF00) Value = 0x300 | ((Value-0x700)>>3);
+    else if(Value<0x300) Value = 0x100 | (uint16_t)((Value-0x100)>>1);
+    else if(Value<0x700) Value = 0x200 | (uint16_t)((Value-0x300)>>2);
+    else if(Value<0xF00) Value = 0x300 | (uint16_t)((Value-0x700)>>3);
     else                 Value = 0x3FF;
     return Value;
 }
@@ -20,20 +20,20 @@ uint16_t DecodeUR2V8(uint16_t Value)                                 // Decode 1
     uint16_t  Range = Value>>8;
     Value &= 0x0FF;
     if(Range==0) return Value;              // 000..0FF
-    if(Range==1) return 0x101+(Value<<1);   // 100..2FE
-    if(Range==2) return 0x302+(Value<<2);   // 300..6FC
-    return 0x704+(Value<<3);
+    if(Range==1) return 0x101+(uint16_t)(Value<<1);   // 100..2FE
+    if(Range==2) return 0x302+(uint16_t)(Value<<2);   // 300..6FC
+    return 0x704+(uint16_t)(Value<<3);
 } // 700..EF8                       // in 12bit (0..3832)
 
 
 uint8_t EncodeUR2V5(uint16_t Value)                                  // Encode unsigned 9bit (0..472) as 7bit
 {
     if(Value<0x020) { }
-    else if(Value<0x060) Value = 0x020 | ((Value-0x020)>>1);
-    else if(Value<0x0E0) Value = 0x040 | ((Value-0x060)>>2);
-    else if(Value<0x1E0) Value = 0x060 | ((Value-0x0E0)>>3);
+    else if(Value<0x060) Value = 0x020 | (uint16_t)((Value-0x020)>>1);
+    else if(Value<0x0E0) Value = 0x040 | (uint16_t)((Value-0x060)>>2);
+    else if(Value<0x1E0) Value = 0x060 | (uint16_t)((Value-0x0E0)>>3);
     else                 Value = 0x07F;
-    return Value;
+    return (uint8_t)Value;
 }
 
 uint16_t DecodeUR2V5(uint16_t Value)                                 // Decode 7bit as unsigned 9bit (0..472)
@@ -43,15 +43,15 @@ uint16_t DecodeUR2V5(uint16_t Value)                                 // Decode 7
     if(Range==0) { }                            // 000..01F
     else if(Range==1)
     {
-        Value = 0x021+(Value<<1);    // 020..05E
+        Value = 0x021+(uint16_t)(Value<<1);    // 020..05E
     }
     else if(Range==2)
     {
-        Value = 0x062+(Value<<2);    // 060..0DC
+        Value = 0x062+(uint16_t)(Value<<2);    // 060..0DC
     }
     else
     {
-        Value = 0x0E4+(Value<<3);    // 0E0..1D8 => max. Value = 472
+        Value = 0x0E4+(uint16_t)(Value<<3);    // 0E0..1D8 => max. Value = 472
     }
     return Value;
 }
@@ -64,23 +64,23 @@ uint8_t EncodeSR2V5(int16_t Value)                                  // Encode si
         Value=(-Value);
         Sign=0x80;
     }
-    Value = EncodeUR2V5(Value);
-    return Value | Sign;
+    Value = EncodeUR2V5((uint16_t)Value);
+    return (uint8_t)Value | Sign;
 }
 
 int16_t DecodeSR2V5( int16_t Value)                                // Decode
 {
     int16_t Sign =  Value&0x80;
-    Value = DecodeUR2V5(Value&0x7F);
+    Value = static_cast<int16_t>(DecodeUR2V5(static_cast<uint16_t>(Value & 0x7F)));
     return Sign ? -Value: Value;
 }
 
 uint16_t EncodeUR2V6(uint16_t Value)                                // Encode unsigned 10bit (0..952) as 8 bit
 {
     if(Value<0x040) { }
-    else if(Value<0x0C0) Value = 0x040 | ((Value-0x040)>>1);
-    else if(Value<0x1C0) Value = 0x080 | ((Value-0x0C0)>>2);
-    else if(Value<0x3C0) Value = 0x0C0 | ((Value-0x1C0)>>3);
+    else if(Value<0x0C0) Value = 0x040 | (uint16_t)((Value-0x040)>>1);
+    else if(Value<0x1C0) Value = 0x080 | (uint16_t)((Value-0x0C0)>>2);
+    else if(Value<0x3C0) Value = 0x0C0 | (uint16_t)((Value-0x1C0)>>3);
     else                 Value = 0x0FF;
     return Value;
 }
@@ -92,15 +92,15 @@ uint16_t DecodeUR2V6(uint16_t Value)                                // Decode 8b
     if(Range==0) { }                            // 000..03F
     else if(Range==1)
     {
-        Value = 0x041+(Value<<1);    // 040..0BE
+        Value = 0x041+(uint16_t)(Value<<1);    // 040..0BE
     }
     else if(Range==2)
     {
-        Value = 0x0C2+(Value<<2);    // 0C0..1BC
+        Value = 0x0C2+(uint16_t)(Value<<2);    // 0C0..1BC
     }
     else
     {
-        Value = 0x1C4+(Value<<3);    // 1C0..3B8 => max. Value = 952
+        Value = 0x1C4+(uint16_t)(Value<<3);    // 1C0..3B8 => max. Value = 952
     }
     return Value;
 }
@@ -113,23 +113,22 @@ uint16_t EncodeSR2V6(int16_t Value)                                 // Encode si
         Value=(-Value);
         Sign=0x100;
     }
-    Value = EncodeUR2V6(Value);
-    return Value | Sign;
+   return EncodeUR2V6((uint16_t)Value) | Sign;
 }
 
 int16_t DecodeSR2V6( int16_t Value)                                // Decode 9bit as signed 11bit (-952..+952)
 {
     int16_t Sign =  Value&0x100;
-    Value = DecodeUR2V6(Value&0x00FF);
+    Value = (int16_t)DecodeUR2V6(Value&0x00FF);
     return Sign ? -Value: Value;
 }
 
 uint8_t EncodeUR2V4(uint8_t DOP)
 {
     if(DOP<0x10) { }
-    else if(DOP<0x30) DOP = 0x10 | ((DOP-0x10)>>1);
-    else if(DOP<0x70) DOP = 0x20 | ((DOP-0x30)>>2);
-    else if(DOP<0xF0) DOP = 0x30 | ((DOP-0x70)>>3);
+    else if(DOP<0x30) DOP = 0x10 | (uint8_t)((DOP-0x10)>>1);
+    else if(DOP<0x70) DOP = 0x20 | (uint8_t)((DOP-0x30)>>2);
+    else if(DOP<0xF0) DOP = 0x30 | (uint8_t)((DOP-0x70)>>3);
     else              DOP = 0x3F;
     return DOP;
 }
@@ -139,17 +138,17 @@ uint8_t DecodeUR2V4(uint8_t DOP)
     uint8_t Range = DOP>>4;
     DOP &= 0x0F;
     if(Range==0) return       DOP;              // 00..0F
-    if(Range==1) return 0x11+(DOP<<1);          // 10..2E
-    if(Range==2) return 0x32+(DOP<<2);          // 30..6C
-    return 0x74+(DOP<<3);
+    if(Range==1) return 0x11+(uint8_t)(DOP<<1);          // 10..2E
+    if(Range==2) return 0x32+(uint8_t)(DOP<<2);          // 30..6C
+    return 0x74+(uint8_t)(DOP<<3);
 }        // 70..E8 => max. DOP = 232*0.1=23.2
 
 uint16_t EncodeUR2V12(uint16_t Value)                        // encode unsigned 16-bit (0..61432) as 14-bit
 {
     if(Value<0x1000) { }
-    else if(Value<0x3000) Value = 0x1000 | ((Value-0x1000)>>1);
-    else if(Value<0x7000) Value = 0x2000 | ((Value-0x3000)>>2);
-    else if(Value<0xF000) Value = 0x3000 | ((Value-0x7000)>>3);
+    else if(Value<0x3000) Value = 0x1000 | (uint16_t)((Value-0x1000)>>1);
+    else if(Value<0x7000) Value = 0x2000 | (uint16_t)((Value-0x3000)>>2);
+    else if(Value<0xF000) Value = 0x3000 | (uint16_t)((Value-0x7000)>>3);
     else                  Value = 0x3FFF;
     return Value;
 }
@@ -159,9 +158,9 @@ uint16_t DecodeUR2V12(uint16_t Value)
     uint16_t Range = Value>>12;
     Value &=0x0FFF;
     if(Range==0) return         Value;       // 0000..0FFF
-    if(Range==1) return 0x1001+(Value<<1);   // 1000..2FFE
-    if(Range==2) return 0x3002+(Value<<2);   // 3000..6FFC
-    return 0x7004+(Value<<3);
+    if(Range==1) return 0x1001+(uint16_t)(Value<<1);   // 1000..2FFE
+    if(Range==2) return 0x3002+(uint16_t)(Value<<2);   // 3000..6FFC
+    return 0x7004+(uint16_t)(Value<<3);
 } // 7000..EFF8 => max: 61432
 
 // ==============================================================================================

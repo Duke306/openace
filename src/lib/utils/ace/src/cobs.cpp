@@ -229,7 +229,7 @@ size_t decodeCOBS(const uint8_t *inptr, size_t inputlen, uint8_t *outptr, size_t
         // make sure we do not try to read after specified end of input buffer
         if (inptr + code > end)
         {
-            code = end - inptr;
+            code = static_cast<uint8_t>(end - inptr);
         }
         inptr += 1;
         // copy (code-1) elements from inptr to outptr

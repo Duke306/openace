@@ -352,7 +352,7 @@ public:
         // ms is in range 0..999
         ms = ms % 1000;
         uint32_t start = t.start % 1000;
-        uint32_t end = (t.end - ChannelTiming::REDUCE_ENDTIME_MS) % 1000;
+        uint32_t end = static_cast<uint32_t>((t.end - ChannelTiming::REDUCE_ENDTIME_MS) % 1000);
 
         if (start < end)
         {

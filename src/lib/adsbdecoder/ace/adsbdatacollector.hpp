@@ -209,7 +209,7 @@ public:
         }
     }
 
-    void updateRawOdd(uint32_t raw_latitude, uint32_t raw_longitude)
+    void updateRawOdd(int32_t raw_latitude, int32_t raw_longitude)
     {
         currentDataStatus->messageStatus |= HAS_POSITION_ODD;
         currentDataStatus->raw_odd_latitude = raw_latitude;
@@ -217,7 +217,7 @@ public:
         decodePCR(true);
     }
 
-    void updateRawEven(uint32_t raw_latitude, uint32_t raw_longitude)
+    void updateRawEven(int32_t raw_latitude, int32_t raw_longitude)
     {
         currentDataStatus->messageStatus |= HAS_POSITION_EVEN;
         currentDataStatus->raw_even_latitude = raw_latitude;
@@ -249,7 +249,7 @@ public:
     {
         if ((currentDataStatus->messageStatus & VALID_MASK) == VALID_MASK)
         {
-            currentDataStatus->messageStatus &= ~HAS_POSITION_UPDATED;
+            currentDataStatus->messageStatus &= static_cast<uint8_t>(~HAS_POSITION_UPDATED);
             return true;
         }
 

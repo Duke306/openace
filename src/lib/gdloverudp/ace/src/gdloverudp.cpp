@@ -39,7 +39,7 @@ void GDLoverUDP::getConfigurationNoMutex(const Configuration &config)
             etl::string_stream stream(path);
             stream << etl::make_string("defaultPorts/") << i;
             int32_t p = config.valueByPath(GDL90OVERUDP_DEFAULT_PORT, NAME, path);
-            udpPorts.insert(p);
+            udpPorts.insert(static_cast<uint16_t>(p));
         }
     }
 
@@ -234,7 +234,7 @@ void GDLoverUDP::transmitBuffer()
     // Calculate how many pbufs 
     auto [lconnectedClients, ludpPorts] = SpinlockGuard::copyWithLock(CoreUtils::sharedSpinLock(), connectedClients, udpPorts);
 
-    uint8_t totalpBufs = lconnectedClients.size() * ludpPorts.size() + gateWayClient ? ludpPorts.size() : 0;
+    uint8_t totalpBufs = static_cast<uint8_t>(static_cast<uint8_t>(lconnectedClients.size() * ludpPorts.size()) + static_cast<uint8_t>(gateWayClient ? ludpPorts.size() : 0));
     for (const auto &client : customClients)
     {
         if ((client.ip & 0xFFFFFF) == networkAddress)
@@ -291,23 +291,23 @@ void GDLoverUDP::transmitBuffer()
     }
 }
 
-void GDLoverUDP::sendTo(uint32_t ip, int16_t port, etl::span<uint8_t> data)
+void GDLoverUDP::sendTo(uint32_t ip, uint16_t port, etl::span<uint8_t> data)
 {
     ip_addr_t addr;
     ip4_addr_set_u32(&addr, ip);
 
-    struct pbuf *pbuf = pbuf_alloc(PBUF_TRANSPORT, data.size(), PBUF_POOL);
+    struct pbuf *pbuf = pbuf_alloc(PBUF_TRANSPORT, static_cast<u16_t>(data.size()), PBUF_POOL);
 
     if (!pbuf)
     {
         return;
     }
-    if (pbuf_take(pbuf, data.begin(), data.size()) != ERR_OK)
+    if (pbuf_take(pbuf, data.begin(), static_cast<u16_t>(data.size())) != ERR_OK)
     {
         pbuf_free(pbuf);
         return;
     }
-    err_t err = udp_sendto(sendPcb, pbuf, &addr, port);
+    err_t err = udp_sendto(sendPcb, pbuf, &addr, static_cast<u16_t>(port));
     pbuf_free(pbuf);
 
     if (err == ERR_OK)

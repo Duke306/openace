@@ -80,7 +80,7 @@ uint8_t Ogn1::errorCorrect(uint8_t *output, uint8_t *data, uint8_t *err, uint8_t
     Ogn1::decoder.Input(data, err);                      // put data into the FEC decoder
     do                                                   // more loops is more chance to recover the packet
     {
-        check = decoder.ProcessChecks(); // do an iteration
+        check = static_cast<uint8_t>(decoder.ProcessChecks()); // do an iteration
     } while ((iter--) && check); // if FEC all fine: break
     Ogn1::decoder.Output(output); // get corrected bytes into the OGN packet
     errCount += ErrCount(output, data, err, OGN_PACKET_LENGTH);
@@ -133,8 +133,8 @@ int8_t Ogn1::parseFrame(OGN1_Packet &packet, int16_t rssiDbm)
     }
     statistics.relay[packet.Header.Relay % 4] += 1;
 
-    float fLatitude = POSITION_DECODE * packet.DecodeLatitude();
-    float fLongitude = POSITION_DECODE * packet.DecodeLongitude();
+    float fLatitude = POSITION_DECODE * static_cast<float>(packet.DecodeLatitude());
+    float fLongitude = POSITION_DECODE * static_cast<float>(packet.DecodeLongitude());
 
     auto ownship = SpinlockGuard::copyWithLock(CoreUtils::sharedSpinLock(), ownshipPosition);
 
@@ -189,8 +189,8 @@ void Ogn1::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
         OGN1_Packet packet;
         packet.Header =
             {
-                .Address = ownship.conspicuity.icaoAddress, // Address
-                .AddrType = addressTypeToOgn(ownship.conspicuity.addressType),
+                .Address = static_cast<uint32_t>(ownship.conspicuity.icaoAddress) & 0x00FFFFFFU, // Address
+                .AddrType = static_cast<uint8_t>(addressTypeToOgn(ownship.conspicuity.addressType)) & 0x03U,
                 .NonPos = 0,    // 0 = position packet, 1 = other information like status
                 .Parity = 0,    // parity takes into account bits 0..27 thus only the 28 lowest bits
                 .Relay = 0,     // 0 = direct packet, 1 = relayed once, 2 = relayed twice, ...
@@ -200,14 +200,14 @@ void Ogn1::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
 
         packet.calcAddrParity();
 
-        packet.EncodeLatitude(ownship.lat * POSITION_ENDECODE);
-        packet.EncodeLongitude(ownship.lon * POSITION_ENDECODE);
-        packet.EncodeSpeed(ownship.groundSpeed * 10.f);
-        packet.EncodeHeading(ownship.track * 10.f);
-        packet.EncodeClimbRate(ownship.verticalSpeed * 10.f);
-        packet.EncodeTurnRate(ownship.hTurnRate * 10.f);
+        packet.EncodeLatitude(static_cast<int32_t>(ownship.lat * POSITION_ENDECODE));
+        packet.EncodeLongitude(static_cast<int32_t>(ownship.lon * POSITION_ENDECODE));
+        packet.EncodeSpeed(static_cast<int16_t>(ownship.groundSpeed * 10.f));
+        packet.EncodeHeading(static_cast<int16_t>(ownship.track * 10.f));
+        packet.EncodeClimbRate(static_cast<int16_t>(ownship.verticalSpeed * 10.f));
+        packet.EncodeTurnRate(static_cast<int16_t>(ownship.hTurnRate * 10.f));
         packet.EncodeAltitude(ownship.heightMsl());
-        packet.EncodeDOP(gpsStats.pDop + 0.5f);
+        packet.EncodeDOP(static_cast<uint8_t>(gpsStats.pDop + 0.5f));
 
         // TODO: Understand how baro Altitude really works in OGN
         packet.clrBaro();
@@ -222,7 +222,7 @@ void Ogn1::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
 
         auto msSinceEpoch = CoreUtils::msSinceEpoch();
         tm time = CoreUtils::localTime(msSinceEpoch);
-        uint8_t secondTime = time.tm_sec;
+        uint8_t secondTime = static_cast<uint8_t>(time.tm_sec);
         // Round time to nearest full second
         if (CoreUtils::msInSecond() >= 500)
         {
@@ -253,10 +253,10 @@ void Ogn1::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
             break;
         }
 
-        packet.Position.Time = secondTime;
-        packet.Position.FixQuality = fixQuality;
-        packet.Position.FixMode = fixMode;
-        packet.Position.AcftType = gatasToOgn(ownship.conspicuity.category);
+        packet.Position.Time = static_cast<uint8_t>(secondTime & 0x3FU);
+        packet.Position.FixQuality = static_cast<uint8_t>(fixQuality & 0x03U);
+        packet.Position.FixMode = static_cast<uint8_t>(fixMode & 0x01U);
+        packet.Position.AcftType = static_cast<uint8_t>(gatasToOgn(ownship.conspicuity.category)) & 0x0FU;
 
         packet.Whiten();
         LDPC_Encode(packet.Word());

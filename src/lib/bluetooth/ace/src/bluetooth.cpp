@@ -52,7 +52,7 @@ void Bluetooth::start()
     bd_addr_t null_addr;
     memset(null_addr, 0, 6);
     gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, 0x07, 0x00);
-    gap_advertisements_set_data(advertiseData.size(), advertiseData.data());
+    gap_advertisements_set_data(static_cast<uint8_t>(advertiseData.size()), advertiseData.data());
     gap_advertisements_enable(1);
 
     gap_set_local_name(localName.c_str());
@@ -141,7 +141,7 @@ void Bluetooth::createAdvData()
     // bit 4 Previously Used
     advertiseData.push_back(0x06);
 
-    uint8_t maxSize = etl::min((size_t)8, localName.size());
+    uint8_t maxSize = static_cast<uint8_t>(etl::min(static_cast<size_t>(8), localName.size()));
     advertiseData.push_back(static_cast<uint8_t>(1 + maxSize)); // length = type + name length
     advertiseData.push_back(BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME);
     advertiseData.insert(advertiseData.end(), localName.begin(), localName.begin() + maxSize);
@@ -241,7 +241,7 @@ void Bluetooth::attContextCallback(void *context)
         uint8_t sendStatus = !ERROR_CODE_SUCCESS;
         if (btContext->hciHandle && (btContext->readyState & ATT_READYSTATE) == ATT_READYSTATE)
         {
-            sendStatus = att_server_notify(btContext->hciHandle, btContext->attrHandle, data.data(), data.size());
+            sendStatus = att_server_notify(btContext->hciHandle, btContext->attrHandle, data.data(), static_cast<uint16_t>(data.size()));
         }
 
         size_t used=0;
@@ -281,8 +281,8 @@ void Bluetooth::attPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t 
         case ATT_EVENT_CONNECTED:
         {
             auto handle = att_event_connected_get_handle(packet);
-            auto mtu = att_server_get_mtu(handle) - 4;
-            if (createConnection(handle, mtu, 0b010))
+            auto mtu = static_cast<uint16_t>(att_server_get_mtu(handle) - 4);
+            if (createConnection(handle, mtu, static_cast<uint8_t>(0b010)))
             {
                 printf("ATT_EVENT_CONNECTED Handle:%d MTU:%d\n", handle, mtu);
                 // Only re-advertise when it's possible to accept new connections
@@ -375,7 +375,7 @@ int Bluetooth::attWriteCallback(hci_con_handle_t con_handle, uint16_t att_handle
         Bluetooth::withHandle(con_handle,
             etl::delegate<void(BtContext &)>::create([buffer](BtContext &ctx)
             {
-                ctx.readyState |= little_endian_read_16(buffer, 0) == GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION ? Bluetooth::CONN_READY : 0b000;
+                ctx.readyState |= static_cast<uint8_t>(little_endian_read_16(buffer, 0) == GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION ? Bluetooth::CONN_READY : 0b000);
                 ctx.attrHandle = ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE;
             }
         ));
@@ -401,7 +401,7 @@ uint16_t Bluetooth::attReadCallback(hci_con_handle_t connection_handle, uint16_t
     UNUSED(connection_handle);
     if (att_handle == ATT_CHARACTERISTIC_GAP_DEVICE_NAME_01_VALUE_HANDLE)
     {
-        return att_read_callback_handle_blob((const uint8_t *)Bluetooth::instance->localName.c_str(), Bluetooth::instance->localName.size(), offset, buffer, buffer_size);
+        return att_read_callback_handle_blob((const uint8_t *)Bluetooth::instance->localName.c_str(), static_cast<uint16_t>(Bluetooth::instance->localName.size()), offset, buffer, buffer_size);
     }
     return 0;
 }

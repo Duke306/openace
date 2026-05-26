@@ -82,7 +82,7 @@ void RxDataFrameQueue::radioQueueTask(void *arg)
                     rxFrame.config->dataSource(),
                     rxFrame.rssidBm};
 
-                manchesterDecodeInline(msg.frame.get(), msg.error.get(), rxFrame.length);
+                manchesterDecodeInline(msg.frame.get(), msg.error.get(), static_cast<uint8_t>(rxFrame.length));
 
                 // Handle multi protocol situations
                 // auto ds = decideDataSource(rxFrame.config->dataSource(), msg.frame32(), rxFrame.length );
@@ -246,7 +246,7 @@ uint8_t RxDataFrameQueue::FindCRCsyndrome(uint32_t Syndr) // quick search for a 
     uint32_t MidSyndr = 0;
     for (;;)
     {
-        uint16_t Mid = (Bot + Top) >> 1;
+        uint16_t Mid = static_cast<uint16_t>((Bot + Top) >> 1);
         MidSyndr = Syndrome[Mid] >> 8;
         if (Syndr == MidSyndr)
         {

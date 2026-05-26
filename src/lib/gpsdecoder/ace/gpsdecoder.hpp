@@ -88,7 +88,7 @@ private:
 
     uint8_t getGpsRate() const
     {
-        return (((float)statistics.receivedRMC) / (CoreUtils::timeS32() - taskStartTime)) + 0.5f;
+        return static_cast<uint8_t>((static_cast<float>(statistics.receivedRMC) / static_cast<float>(CoreUtils::timeS32() - taskStartTime)) + 0.5f);
     }
 
     float getFloat(const minmea_float &f, float defaultValue)

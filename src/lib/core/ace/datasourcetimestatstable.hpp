@@ -33,7 +33,7 @@ namespace GATAS
             {
                 if (stat.frequency == frequency)
                 {
-                    stat.timeTenthMs.set(tenthMsIndex);
+                    stat.timeTenthMs.set(static_cast<size_t>(tenthMsIndex));
                     return;
                 }
             }
@@ -43,7 +43,7 @@ namespace GATAS
                 auto &stat = storage_[size_++];
                 stat = DataSourceTimeStats{};
                 stat.frequency = frequency;
-                stat.timeTenthMs.set(tenthMsIndex);
+                stat.timeTenthMs.set(static_cast<size_t>(tenthMsIndex));
             }
         }
 

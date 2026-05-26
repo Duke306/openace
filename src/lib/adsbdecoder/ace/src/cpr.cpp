@@ -45,7 +45,7 @@ int16_t  cprModint (int16_t  a, int16_t  b)
 /* Always positive MOD operation, used for CPR decoding. */
 float cprModDouble(float a, float b)
 {
-    float res = fmod(a, b);
+    float res = fmodf(a, b);
     if (res < 0) res += b;
     return res;
 }
@@ -119,7 +119,7 @@ int16_t  cprNLFunction(float lat)
 
 int16_t  cprNFunction(float lat, bool  fflag)
 {
-    int16_t  nl = cprNLFunction(lat) - (fflag ? 1 : 0);
+    int16_t  nl = static_cast<int16_t>(cprNLFunction(lat) - (fflag ? 1 : 0));
     if (nl < 1) nl = 1;
     return nl;
 }
@@ -140,7 +140,7 @@ float cprDlonFunction(float lat, bool  fflag, bool surface=false)
  *    simplicity. This may provide a position that is less fresh of a few
  *    seconds.
  */
-void decodeCPR(bool fflag, uint32_t even_cprlat, uint32_t even_cprlon, uint32_t odd_cprlat, uint32_t odd_cprlon, float *pfLat, float *pfLon)
+void decodeCPR(bool fflag, int32_t even_cprlat, int32_t even_cprlon, int32_t odd_cprlat, int32_t odd_cprlon, float *pfLat, float *pfLon)
 {
     constexpr float AirDlat0 = 360.0f / 60;
     constexpr float AirDlat1 = 360.0f / 59;
@@ -153,7 +153,7 @@ void decodeCPR(bool fflag, uint32_t even_cprlat, uint32_t even_cprlon, uint32_t 
     float rlat, rlon;
 
     /* Compute the Latitude Index "j" */
-    int16_t  j = static_cast<int16_t>(floor(((59*lat0 - 60.0f*lat1) / 131072) + 0.5));
+    int16_t  j = static_cast<int16_t>(floorf(((59*lat0 - 60.0f*lat1) / 131072) + 0.5f));
     float rlat0 = AirDlat0 * (cprModint (j,60) + lat0 / 131072.0f);
     float rlat1 = AirDlat1 * (cprModint (j,59) + lat1 / 131072.0f);
 
@@ -175,7 +175,7 @@ void decodeCPR(bool fflag, uint32_t even_cprlat, uint32_t even_cprlon, uint32_t 
     {
         /* Use odd packet. */
         int16_t  ni = cprNFunction(rlat1,true);
-        int16_t  m = static_cast<int16_t>(floor((((lon0 * (cprLat1-1)) -  (lon1 * cprLat1)) / 131072.0f) + 0.5f));
+        int16_t  m = static_cast<int16_t>(floorf((((lon0 * (cprLat1-1)) -  (lon1 * cprLat1)) / 131072.0f) + 0.5f));
         rlon = cprDlonFunction(rlat1,true) * (cprModint (m,ni)+lon1/131072);
         rlat = rlat1;
 
@@ -184,11 +184,11 @@ void decodeCPR(bool fflag, uint32_t even_cprlat, uint32_t even_cprlon, uint32_t 
     {
         /* Use even packet. */
         int16_t  ni = cprNFunction(rlat0,false);
-        int16_t  m = static_cast<int16_t>(floor((((lon0 * (cprLat0-1)) -  (lon1 * cprLat0)) / 131072.0f) + 0.5f));
+        int16_t  m = static_cast<int16_t>(floorf((((lon0 * (cprLat0-1)) -  (lon1 * cprLat0)) / 131072.0f) + 0.5f));
         rlon = cprDlonFunction(rlat0,false) * (cprModint (m,ni)+lon0/131072);
         rlat = rlat0;
     }
-    rlon -= floor( (rlon + 180.0f) / 360.0f ) * 360.0f;
+    rlon -= floorf( (rlon + 180.0f) / 360.0f ) * 360.0f;
 
     *pfLat = rlat;
     *pfLon = rlon;

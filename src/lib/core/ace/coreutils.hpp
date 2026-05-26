@@ -7,6 +7,7 @@
 
 #include "pico/time.h"
 
+#include "constants.hpp"
 #include "messages.hpp"
 #include "spinlockguard.hpp"
 
@@ -26,19 +27,9 @@ public:
         spinLock = SpinlockGuard::claim();
     }
 
-    __force_inline static spin_lock_t * sharedSpinLock()
+    __force_inline static spin_lock_t *sharedSpinLock()
     {
         return spinLock;
-    }
-
-    /**
-     * Convert and timestamp to an uint32_t which is synced with GPS time such that at PPS the ms should reppresents (somewhere close) to a ms
-     * eg: 45'453'010 = represents 10ms after PPS
-     * \deprecated
-     */
-    static uint32_t timeToPositionTs(int8_t hours, int8_t minutes, int8_t seconds, int16_t microseconds)
-    {
-        return hours * 3600 + minutes * 60 + seconds + microseconds;
     }
 
     /**
@@ -71,7 +62,7 @@ public:
      */
     static uint32_t timeMs32()
     {
-        return timeUs64() / 1'000;
+        return static_cast<uint32_t>(timeUs64() / (uint64_t)1'000);
     }
     /**
      * Get a timestamp in seconds
@@ -79,7 +70,7 @@ public:
      */
     static uint32_t timeS32()
     {
-        return timeUs64() / 1'000'000;
+        return static_cast<uint32_t>(timeUs64() / (uint32_t)1'000'000);
     }
 
     /**
@@ -144,7 +135,7 @@ public:
      */
     static void __time_critical_func(setPPS)(int32_t offsetUs)
     {
-        CoreUtils_timeUs32PpsOffset = time_us_32() % 1'000'000 - offsetUs;
+        CoreUtils_timeUs32PpsOffset = static_cast<uint32_t>(static_cast<int64_t>(time_us_32() % 1'000'000) - static_cast<int64_t>(offsetUs));
     }
 
     /**
@@ -153,12 +144,12 @@ public:
      */
     static uint16_t msInSecond()
     {
-        return (timeUs32() / 1'000) % 1'000;
+        return static_cast<uint16_t>(static_cast<uint32_t>((timeUs32() / 1'000)) % static_cast<uint32_t>(1'000));
     }
 
     static uint16_t usInSecond()
     {
-        return (timeUs64()) % 1'000'000;
+        return static_cast<uint16_t>(timeUs64() % static_cast<uint64_t>(1'000'000));
     }
 
     /**
@@ -178,7 +169,7 @@ public:
         }
         else
         {
-            return 1'000 - ms + refMsInSecond;
+            return static_cast<uint16_t>(1'000 - ms + refMsInSecond);
         }
     }
 
@@ -208,7 +199,7 @@ public:
      */
     static uint32_t secondsSinceEpoch()
     {
-        return msSinceEpoch() / 1000;
+        return static_cast<uint32_t>(msSinceEpoch() / static_cast<uint64_t>(1000));
     }
 
     /**
@@ -222,7 +213,7 @@ public:
 
     static uint32_t msSinceMidnight()
     {
-        return msSinceEpoch() % 86'400'000;
+        return static_cast<uint32_t>(msSinceEpoch() % static_cast<uint64_t>(86'400'000));
     }
 
     static tm localTime()
@@ -232,7 +223,7 @@ public:
 
     static tm localTime(uint64_t msSinceEpoch)
     {
-        time_t secondsSinceEpoch = msSinceEpoch / 1000;
+        time_t secondsSinceEpoch = static_cast<int64_t>(msSinceEpoch / static_cast<uint64_t>(1000));
         struct tm timeinfo = {};
         localtime_r(&secondsSinceEpoch, &timeinfo);
         return timeinfo;
@@ -338,7 +329,7 @@ public:
         float dLon = toLon - fromLon;
         float cosToLat = cosf(toLat);
         float bearingDegrees = atan2f(sinf(dLon) * cosToLat, (cosf(fromLat) * sinf(toLat)) - (sinf(fromLat) * cosToLat * cosf(dLon)));
-        return fmodf((bearingDegrees + M_TWOPI), M_TWOPI);
+        return fmodf((bearingDegrees + M_TWOPIF), M_TWOPIF);
     }
 
     /**
@@ -356,8 +347,9 @@ public:
     static float __time_critical_func(bearingFromInDegShort)(float east, float north)
     {
         float theta = atan2f(east, north);
-        float deg = theta * 180.f / M_PI;
-        if (deg < 0.f) {
+        float deg = theta * 180.f / (float)M_PI;
+        if (deg < 0.f)
+        {
             deg += 360.f;
         }
         return deg;
@@ -379,12 +371,13 @@ public:
         int32_t relEast;
         uint16_t bearing()
         {
-            auto bearing = bearingFromInDegShort(relEast, relNorth);
-            if (bearing >= 360)
+            float bearing = bearingFromInDegShort(static_cast<float>(relEast), static_cast<float>(relNorth));
+            uint16_t rounded = static_cast<uint16_t>(bearing + 0.5f);
+            if (rounded >= 360)
             {
-                bearing = 0;
+                rounded = 0;
             }
-            return bearing;
+            return rounded;
         }
     };
 
@@ -472,13 +465,13 @@ public:
         degree = CoreUtils::toBearing(degree);
 
         // Calculate the section
-        return static_cast<int>(fmodf((degree + (sectionSize >> 1)) / sectionSize, SECTIONS));
+        return static_cast<int>(fmodf(static_cast<float>(degree + (sectionSize >> 1)) / static_cast<float>(sectionSize), static_cast<float>(SECTIONS)));
     }
 
     template <int SECTIONS>
     static int getRadialSectionRad(float rad)
     {
-        return getRadialSection<SECTIONS>(rad * RADS_TO_DEG);
+        return getRadialSection<SECTIONS>(static_cast<int16_t>(rad * RADS_TO_DEG));
     }
 
     /*
@@ -608,7 +601,7 @@ public:
         // For lowercase a-f letters:
         // return val - (val < 58 ? 48 : 87);
         // Or the two combined, but a bit slower:
-        return val - (val < 58 ? 48 : (val < 97 ? 55 : 87));
+        return static_cast<uint8_t>(val - (val < 58 ? 48 : (val < 97 ? 55 : 87)));
     }
 
     /**
@@ -622,10 +615,14 @@ public:
         }
     }
 
+    /**
+     * Convert a HEX string to a byte array to a maximum length of 254 characters/
+     */
     static void hexStrToByteArray(const char *hex, uint8_t byteArray[])
     {
         auto hexLength = strlen(hex);
-        hexStrToByteArray(hex, hexLength, byteArray);
+        if (hexLength > 254) return;
+        hexStrToByteArray(hex, static_cast<uint8_t>(hexLength), byteArray);
     }
 
     /**
@@ -645,7 +642,7 @@ public:
     /**
      * Returns the pin number from the pin map, when not found returns -1 to indicate that
      */
-    static int8_t pinValue(const GATAS::PinTypeMap &pm, const GATAS::PinType &pinName, int8_t defaultValue = -1)
+    static uint8_t pinValue(const GATAS::PinTypeMap &pm, const GATAS::PinType &pinName, uint8_t defaultValue = UINT8_MAX)
     {
         auto it = pm.find(pinName);
         if (it != pm.end())

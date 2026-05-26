@@ -100,7 +100,7 @@ void RadioTunerRx::radioTuneTask(void *arg)
             }
 
             // Position within the repeating cycle
-            const int32_t cycleMs = loopStartMs % ref.maxTimeMs;
+            const int32_t cycleMs = static_cast<int32_t>(loopStartMs % ref.maxTimeMs);
 
             // Find which entry covers this time
             size_t foundIdx = 0;
@@ -325,7 +325,7 @@ void RadioTunerRx::spreadSecondIndex(RadioProtocolCtx &ctx)
         }
     }
 
-    const uint16_t N = unique.size();
+    const uint16_t N = static_cast<uint16_t>(unique.size());
     if (N <= 2)
     {
         return; // nothing to improve

@@ -205,7 +205,7 @@ public:
         {
             OutBit[Bit] = InpBit[Bit] + (ExtBit[Bit]>>1);
         }
-        return Count;
+        return static_cast<int8_t>(Count);
     }
 
     int16_t ProcessCheck(uint8_t Row)
@@ -242,7 +242,7 @@ public:
             uint8_t BitIdx=CheckIndex[Bit];
             int16_t Ampl = Bit==MinBit ? MinAmpl2 : MinAmpl;
             if(CheckFails) Ampl=(-Ampl);
-            ExtBit[BitIdx] += (Word&Mask) ? Ampl:-Ampl;
+            ExtBit[BitIdx] = static_cast<int16_t>(ExtBit[BitIdx] + ((Word & Mask) ? Ampl : -Ampl));
             Mask<<=1;
         }
         return CheckFails?-MinAmpl:MinAmpl;

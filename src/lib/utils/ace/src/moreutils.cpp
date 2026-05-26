@@ -8,7 +8,7 @@ uint32_t parseIpv4String(const etl::string_view ipStr, uint32_t defaultValue)
     Token token;
     while ((token = etl::get_token(ipStr, ".", token, true)))
     {
-        uint32_t value = atoi(token.value().cbegin());
+        uint32_t value = static_cast<uint32_t>(atoi(token.value().cbegin()));
         if (value > 255)
         {
             return defaultValue;

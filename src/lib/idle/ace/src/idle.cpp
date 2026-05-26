@@ -37,7 +37,11 @@ void Idle::calculatePattern()
         wifiModePattern = WIFI_NC_PATTERN;
     }
 
-    blinkPattern = hasGpsFix ? wifiModePattern << 16 | wifiModePattern << 8 | wifiModePattern : wifiModePattern;
+    blinkPattern = hasGpsFix
+                       ? (static_cast<uint32_t>(static_cast<uint32_t>(wifiModePattern) << 16U) |
+                          static_cast<uint32_t>(static_cast<uint32_t>(wifiModePattern) << 8U) |
+                          static_cast<uint32_t>(wifiModePattern))
+                       : static_cast<uint32_t>(wifiModePattern);
 }
 
 void Idle::on_receive_unknown(const etl::imessage &msg)
@@ -66,7 +70,7 @@ bool Idle::blinkCb(repeating_timer_t *t)
         idle->patternStep = Idle::PATTERN_STEPS;
     }
     idle->patternStep--;
-    gpio_put(idle->ledStatusIndicatorPin, idle->runningPattern & 0b1);
+    gpio_put(static_cast<uint>(idle->ledStatusIndicatorPin), idle->runningPattern & 0b1U);
 
     idle->runningPattern >>= 1;
     return true;
@@ -126,12 +130,12 @@ void Idle::idleTask(void *arg)
         if (msgFlags & DO_300S)
         {
             at->getBus().receive(GATAS::Every300SecMsg());
-            msgFlags &= ~DO_300S;
+            msgFlags &= static_cast<uint8_t>(~DO_300S);
         }
         else if (msgFlags & DO_30S)
         {
             at->getBus().receive(GATAS::Every30SecMsg());
-            msgFlags &= ~DO_30S;
+            msgFlags &= static_cast<uint8_t>(~DO_30S);
         }
         else if (msgFlags & DO_15S)
         {
@@ -154,12 +158,12 @@ void Idle::idleTask(void *arg)
             }
 #endif
             at->getBus().receive(GATAS::Every15SecMsg());
-            msgFlags &= ~DO_15S;
+            msgFlags &= static_cast<uint8_t>(~DO_15S);
         }
         else if (msgFlags & DO_5S)
         {
             at->getBus().receive(GATAS::Every5SecMsg());
-            msgFlags &= ~DO_5S;
+            msgFlags &= static_cast<uint8_t>(~DO_5S);
         }
         else
         {

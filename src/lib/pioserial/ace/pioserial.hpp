@@ -26,7 +26,7 @@ class PioSerial
     using CallBackFunction = etl::delegate<void(const etl::array_view<char>&)>;
 
 private:
-    static constexpr etl::array commonBaudrates{ 115200, 9600, 19200, 38400, 57600 };
+    static constexpr etl::array<uint32_t, 5> commonBaudrates{ 115200U, 9600U, 19200U, 38400U, 57600U };
 
 
     static void pio0_irq0_func_handler()
@@ -55,8 +55,8 @@ private:
 
     uint8_t handlerIdx=0;
 
-    const int8_t rxPin;
-    const int8_t txPin;
+    const uint8_t rxPin;
+    const uint8_t txPin;
     const uint32_t baudrate;
 
     PIO rxPio;
@@ -80,11 +80,11 @@ public:
         txPin(CoreUtils::pinValue(pins, GATAS::PinType::TX)),
         baudrate(baudrate_),
         rxPio(nullptr),
-        rxSmIndx(-1),
+        rxSmIndx(0),
         rxOffset(0),
         charIndex(0),
         txPio(nullptr),
-        txSmIndx(-1),
+        txSmIndx(0),
         txOffset(0),
         handler(nullptr),
         callback(callback_)

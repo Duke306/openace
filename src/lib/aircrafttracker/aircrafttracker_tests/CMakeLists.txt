@@ -32,7 +32,7 @@ endif()
 
 # These examples use the standard separate compilation
 set(SOURCES_IDIOMATIC_EXAMPLES
-    trackerdata_test.cpp 
+    trackerdata_test.cpp
 )
 
 string(REPLACE ".cpp" "" BASENAMES_IDIOMATIC_EXAMPLES

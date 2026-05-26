@@ -186,7 +186,7 @@ public:
                                                                                            radioNo_,
                                                                                            config.valueByPath(true, NAMES[radioNo_], "txEnabled"),
                                                                                            config.gaTasConfig().conspicuity.groundStation,
-                                                                                           config.valueByPath(true, NAMES[radioNo_], "offset"))
+                                                                                           static_cast<uint32_t>(config.valueByPath(true, NAMES[radioNo_], "offset")))
     {
 
     }

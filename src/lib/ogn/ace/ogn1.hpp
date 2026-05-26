@@ -108,7 +108,7 @@ public:
     Ogn1(etl::imessage_bus &bus, const Configuration &config) : BaseModule(bus, NAME)
     {
         auto di = config.valueByPath(DEFAULT_IGNORE_DISTANCE, "Ogn1", "distanceIgnore");
-        distanceIgnore = etl::max(0, etl::min(di, MAX_IGNORE_DISTANCE));
+        distanceIgnore = static_cast<uint32_t>(etl::max(0, etl::min(di, MAX_IGNORE_DISTANCE)));
     }
 
     virtual ~Ogn1() = default;

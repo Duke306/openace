@@ -96,16 +96,16 @@ void GpsDecoder::on_receive(const GATAS::GPSSentenceMsg &msg)
             switch (type)
             {
             case 'P':
-                satViewStats.gps = frame.total_sats;
+                satViewStats.gps = static_cast<uint8_t>(frame.total_sats);
                 break;
             case 'L':
-                satViewStats.glo = frame.total_sats;
+                satViewStats.glo = static_cast<uint8_t>(frame.total_sats);
                 break;
             case 'A':
-                satViewStats.gal = frame.total_sats;
+                satViewStats.gal = static_cast<uint8_t>(frame.total_sats);
                 break;
             case 'B':
-                satViewStats.bds = frame.total_sats;
+                satViewStats.bds = static_cast<uint8_t>(frame.total_sats);
                 break;
             }
         }
@@ -117,7 +117,7 @@ void GpsDecoder::on_receive(const GATAS::GPSSentenceMsg &msg)
         struct minmea_sentence_rmc frame;
         if (minmea_parse_rmc(&frame, msg.sentence.c_str()))
         {
-            uint16_t millis = frame.time.microseconds / 1000;
+            uint16_t millis = static_cast<uint16_t>(frame.time.microseconds / 1000);
 
 #if GATAS_DEBUG == 1
             // Print the time difference between the RMC and the local time
@@ -205,8 +205,8 @@ void GpsDecoder::on_receive(const GATAS::GPSSentenceMsg &msg)
             geoidSeparation = convertToMeters(frame.height, frame.height_units, geoidSeparation);        // Field 11 (Undulation)
             altitudeGeoid(geoidAltitude);
 
-            satsUsedForFix = frame.satellites_tracked;
-            fixQuality = frame.fix_quality;
+            satsUsedForFix = static_cast<uint8_t>(frame.satellites_tracked);
+            fixQuality = static_cast<uint8_t>(frame.fix_quality);
             lastGGATimestamp = frame.time;
 
             sendMessageWhenGGAisRMC();

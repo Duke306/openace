@@ -55,7 +55,7 @@ public:
     Bmp280(etl::imessage_bus &bus, const Configuration &config) : BaseModule(bus, NAME),
                                                                   cs(config.pinMap(NAME).at(GATAS::PinType::CS))
     {
-        compensation = config.valueByPath(0, NAME, "compensation");
+        compensation = static_cast<int16_t>(config.valueByPath(0, NAME, "compensation"));
     }
 
     virtual ~Bmp280() = default;

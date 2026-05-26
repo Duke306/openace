@@ -269,7 +269,7 @@ void GatasConnect::requestTimerCallback(TimerHandle_t xTimer)
     // --- Aircraft configuration (always send)
     writer.restart();
     // > 25 Byte
-    BinaryMessages::serializeAircraftConfigurationV2(writer, gatasIdSnap, icaoAddressSnap, allIcaoAddressesSnap, gatasIpSnap, pinCodeSnap);
+    BinaryMessages::serializeAircraftConfigurationV2(writer, static_cast<uint32_t>(gatasIdSnap), icaoAddressSnap, allIcaoAddressesSnap, gatasIpSnap, pinCodeSnap);
     auto size = encodeCOBS(perCobsBuffer.data(), configSize, cobsPayload.data() + position, cobsPayload.size() - position, true);
     position += size;
 
@@ -292,13 +292,13 @@ void GatasConnect::requestTimerCallback(TimerHandle_t xTimer)
         }
     }
 
-    struct pbuf *pbuf = pbuf_alloc(PBUF_TRANSPORT, position, PBUF_POOL);
+    struct pbuf *pbuf = pbuf_alloc(PBUF_TRANSPORT, static_cast<u16_t>(position), PBUF_POOL);
     if (!pbuf)
     {
         statistics.bufferAllocErr++;
         return;
     }
-    if (pbuf_take(pbuf, cobsPayload.begin(), position) != ERR_OK)
+    if (pbuf_take(pbuf, cobsPayload.begin(), static_cast<u16_t>(position)) != ERR_OK)
     {
         pbuf_free(pbuf);
         return;

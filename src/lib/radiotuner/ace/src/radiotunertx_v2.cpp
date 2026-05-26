@@ -89,7 +89,7 @@ void RadioTunerTx::radioTuneTask()
     while (true)
     {
         uint32_t notifyValue = 0;
-        xTaskNotifyWait(pdFALSE, ULONG_MAX, &notifyValue, TASK_DELAY_MS(nextDelayMs));
+        xTaskNotifyWait(pdFALSE, ULONG_MAX, &notifyValue, TASK_DELAY_MS(static_cast<uint32_t>(nextDelayMs)));
 
         if (notifyValue & TaskState::UNBLOCK)
         {

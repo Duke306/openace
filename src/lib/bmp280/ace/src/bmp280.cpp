@@ -11,7 +11,7 @@ void Bmp280::on_receive(const GATAS::ConfigUpdatedMsg &msg)
 {
     if (msg.moduleName == Bmp280::NAME)
     {
-        compensation = msg.config.valueByPath(0, Bmp280::NAME, "compensation");
+        compensation = static_cast<int16_t>(msg.config.valueByPath(0, Bmp280::NAME, "compensation"));
     }
 }
 
@@ -52,7 +52,7 @@ uint32_t Bmp280::compensate_pressure(int32_t adc_P)
     if (var1 == 0)
         return 0;
 
-    p = (((uint32_t)(((int32_t)1048576) - adc_P) - (var2 >> 12))) * 3125;
+    p = static_cast<uint32_t>((((int32_t)1048576) - adc_P) - (var2 >> 12)) * 3125U;
     if (p < 0x80000000)
         p = (p << 1) / ((uint32_t)var1);
     else
@@ -143,9 +143,9 @@ void Bmp280::on_receive(const GATAS::Every30SecMsg &msg)
         int32_t temperature = ((uint32_t)buffer[3] << 12) | ((uint32_t)buffer[4] << 4) | (buffer[5] >> 4);
 
         temperature = compensate_temp(temperature);
-        pressure = compensate_pressure(pressure);
+        pressure = static_cast<int32_t>(compensate_pressure(pressure));
 
-        statistics.lastPressurehPa = (pressure + compensation) / 100.0f;
+        statistics.lastPressurehPa = static_cast<float>(pressure + compensation) / 100.0f;
         getBus().receive(GATAS::BarometricPressureMsg(
             GATAS::BarometricPressure(
                 statistics.lastPressurehPa, CoreUtils::timeUs32Raw())));

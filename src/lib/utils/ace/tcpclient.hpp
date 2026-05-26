@@ -148,7 +148,8 @@ public:
             return false;
         }
 
-        err_t err = tcp_write(pcb, data.data(), data.size(),
+        const u16_t writeSize = static_cast<u16_t>(data.size());
+        err_t err = tcp_write(pcb, data.data(), writeSize,
                               TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE);
 
         if (flush || err != ERR_OK)
@@ -307,7 +308,7 @@ private:
 
         cyw43_arch_lwip_check();
 
-        size_t total = 0;
+        u16_t total = 0;
         for (pbuf *q = pBuf; q != nullptr; q = q->next)
         {
             auto *data = reinterpret_cast<uint8_t *>(q->payload);
@@ -316,7 +317,7 @@ private:
             {
                 self->onReceive({data, len});
             }
-            total += len;
+            total = static_cast<u16_t>(total + q->len);
         }
 
         tcp_recved(tpcb, total);

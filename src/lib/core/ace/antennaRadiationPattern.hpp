@@ -41,9 +41,9 @@ namespace GATAS
         void put(const GATAS::IngressAircraftPositionMsg &msg)
         {
             auto &position = msg.position;
-            const float bearingFromOwn = CoreUtils::bearingFromInDegShort(position.relEastFromOwn, position.relNorthFromOwn);
+            const float bearingFromOwn = CoreUtils::bearingFromInDegShort(static_cast<float>(position.relEastFromOwn), static_cast<float>(position.relNorthFromOwn));
             const float relativeBearing = CoreUtils::toBearing(bearingFromOwn - static_cast<float>(position.track));
-            uint8_t positionInRadial = CoreUtils::getRadialSection<NUM_RADIALS>(relativeBearing);
+            uint8_t positionInRadial = static_cast<uint8_t>(CoreUtils::getRadialSection<NUM_RADIALS>(static_cast<int16_t>(relativeBearing)));
             Measurement &measurement = radiationPattern[positionInRadial];
 
             if (position.distanceFromOwn > measurement.maxDistance)
@@ -52,7 +52,7 @@ namespace GATAS
                 measurement.maxRssiDbm = msg.rssidBm;
             }
             measurement.avgDistance = (measurement.avgDistance + position.distanceFromOwn) / 2;
-            measurement.avgRssiDbm = (measurement.avgRssiDbm + msg.rssidBm) / 2;
+            measurement.avgRssiDbm = static_cast<int16_t>((measurement.avgRssiDbm + msg.rssidBm) / 2);
         }
 
         const etl::array<Measurement, NUM_RADIALS>& _radiationPattern() const
