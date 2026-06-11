@@ -1,4 +1,5 @@
 #include "../aircrafttracker.hpp"
+#include "ace/debug.hpp"
 #include "ace/coreutils.hpp"
 #include "ace/models.hpp"
 
@@ -11,12 +12,13 @@ GATAS::PostConstruct AircraftTracker::postConstruct()
     {
         return GATAS::PostConstruct::MUTEX_ERROR;
     }
+    GATAS_REGISTER_MUTEX(trackedAircraftMutex, "AircraftTracker_mutex");
     return GATAS::PostConstruct::OK;
 }
 
 void AircraftTracker::start()
 {
-    xTaskCreate(aircraftTrackerTrampoline, AircraftTracker::NAME.cbegin(), configMINIMAL_STACK_SIZE + 768, this, tskIDLE_PRIORITY + 6, &taskHandle);
+    xTaskCreate(aircraftTrackerTrampoline, AircraftTracker::NAME.cbegin(), configMINIMAL_STACK_SIZE + 768, this, tskIDLE_PRIORITY + 2, &taskHandle);
     getBus().subscribe(*this);
 };
 
@@ -28,6 +30,7 @@ void AircraftTracker::on_receive(const GATAS::ConfigUpdatedMsg &msg)
         ownshipAddress = gaTasConfig.conspicuity.icaoAddress;
         groundStation_ = gaTasConfig.conspicuity.groundStation;
         trackedAircraft.ddbEnabled(msg.config.valueByPath(false, NAME, "ddbEnabled"));
+        trackedAircraft.prefixEnabled(msg.config.valueByPath(false, NAME, "prefixEnabled"));
     }
 }
 
@@ -47,7 +50,7 @@ void AircraftTracker::getData(etl::string_stream &stream, const etl::string_view
     (void)path;
     auto guard = lockTrackedAircraft();
     stream << "{";
-    for (uint8_t i = 0; i < static_cast<uint8_t>(GATAS::DataSource::_TRANSPROTOCOLS); i++)
+    for (uint8_t i = 0; i < static_cast<uint8_t>(GATAS::DataSource::_RADIO); i++)
     {
         stream << "\"" << GATAS::dataSourceIntToString(i) << ":AntPolar\":";
         antennaRadiationPattern[i].serialize(stream);
@@ -61,7 +64,8 @@ void AircraftTracker::getData(etl::string_stream &stream, const etl::string_view
 
     stream << "\"hex\":[";
     bool first = true;
-    trackedAircraft.forEachPosition([&](const GATAS::AircraftPositionInfo &aircraft) {
+    trackedAircraft.forEachPosition([&](const GATAS::AircraftPositionInfo &aircraft)
+                                    {
         if (!first)
         {
             stream << ",";
@@ -69,41 +73,46 @@ void AircraftTracker::getData(etl::string_stream &stream, const etl::string_view
         first = false;
         stream << "\"";
         CoreUtils::streamIcaoAddress(stream, aircraft.address, aircraft.addressType);
-        stream << "\"";
-    });
+        stream << "\""; });
 
     stream << "],\"ds\":[";
     first = true;
-    trackedAircraft.forEachPosition([&](const GATAS::AircraftPositionInfo &aircraft) {
+    trackedAircraft.forEachPosition([&](const GATAS::AircraftPositionInfo &aircraft)
+                                    {
         if (!first)
         {
             stream << ",";
         }
         first = false;
-        stream << "\"" << GATAS::toString(aircraft.dataSource) << "\"";
-    });
+        stream << "\"" << GATAS::toString(aircraft.dataSource) << "\""; });
 
     stream << "],\"dis\":[";
     first = true;
-    trackedAircraft.forEachPosition([&](const GATAS::AircraftPositionInfo &aircraft) {
+    trackedAircraft.forEachPosition([&](const GATAS::AircraftPositionInfo &aircraft)
+                                    {
         if (!first)
         {
             stream << ",";
         }
         first = false;
-        stream << aircraft.distanceFromOwn;
-    });
+        stream << aircraft.distanceFromOwn; });
     stream << "]}";
     stream << "}";
 }
 
 void AircraftTracker::on_receive(const GATAS::IngressAircraftPositionsMsg &msg)
 {
+    GATAS_MEASURE("on_receive", 1000);
     for (const auto &aircraft : msg.positions)
     {
         if (ownshipAddress == aircraft.address)
         {
             continue;
+        }
+        uint8_t dataSource = static_cast<uint8_t>(aircraft.dataSource);
+        if (dataSource < antennaRadiationPattern.size())
+        {
+            antennaRadiationPattern[dataSource].put(aircraft);
         }
         if (!queue.full())
         {
@@ -121,6 +130,8 @@ void AircraftTracker::on_receive(const GATAS::IngressAircraftPositionsMsg &msg)
 
 void AircraftTracker::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
 {
+    GATAS_MEASURE("on_receive", 1000);
+
     // radioParameters.id == 1 means O-Band Uplink
     // We do that here, because we neeed to send 10 aircraft instead of just ownship
     // Only function as ADSL uplink in ground station mode
@@ -181,7 +192,7 @@ void AircraftTracker::aircraftTrackerTask(void *arg)
         }
 
         // Handle timers
-        if (notifyValue == 0 || notifyValue & TaskState::TIMER)
+        if (notifyValue == 0)
         {
             sendEligibleAircraft();
         }
