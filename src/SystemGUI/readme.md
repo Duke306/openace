@@ -9,7 +9,7 @@ All files in the `SystemGUI/dist` directory are automatically packaged into `src
 # Libraries and frameworks used
 
 1. `@frameable/el` LitElement-like framework to create and use web components [https://github.com/frameable/el](https://github.com/frameable/el)
-1. `@picocss/pico` Lightweight semantic CSS framework, compiled with only the modules used by OpenAce [https://picocss.com](https://picocss.com)
+1. `@picocss/pico` Lightweight semantic CSS framework, compiled with only the modules used by GATAS [https://picocss.com](https://picocss.com)
 1. `just-validate` Form validation framework [https://just-validate.dev](https://just-validate.dev)
 
 # Quick Start for UI Development
