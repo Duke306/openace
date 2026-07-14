@@ -76,16 +76,18 @@ class AircraftTrackerConfig extends ModuleConfig {
       <form ref="form" autocomplete="off" novalidate="novalidate">
 
       <div class="page-section">
-          <label for="ddbEnabled">
-            <label class="help-label">
-              DDB Enabled ${html.raw(icon.help)}
-              <p class="app-tooltip">
-                Enable to lookup the Aircrafts callsign from based on hex code from <a href="https://ddb.glidernet.org" target="_blank" rel="noopener noreferrer">DDB<a> connected clients that use GDL90 or NMEA
-              </p>
-            </label>:
-            <br />
-            <input type="checkbox" id="ddbEnabled" ref="ddbEnabled" placeholder="1" />
-          </label>
+          <div class="config-field-heading">
+            <label for="ddbEnabled">DDB Enabled</label>
+            <span class="help-label" tabindex="0" aria-label="About DDB Enabled">
+              ${html.raw(icon.help)}
+              <span class="app-tooltip" role="tooltip">
+                Look up aircraft callsigns by hex code using the
+                <a href="https://ddb.glidernet.org" target="_blank" rel="noopener noreferrer">DDB</a>
+                for connected GDL90 or NMEA clients.
+              </span>
+            </span>
+          </div>
+          <input type="checkbox" id="ddbEnabled" ref="ddbEnabled" />
           <div class="notice notice--warning">
             <svg class="icon-spacing" style="width: 24px; height: 24px;" viewBox="0 0 24 24"><path fill="currentColor" d="M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z"></path></svg>
             Please note that the DDB is created and maintained by aviation enthusiasts and is in no way an official registry.
@@ -94,48 +96,48 @@ class AircraftTrackerConfig extends ModuleConfig {
         </div>
 
         <div class="page-section">
-          <label for="pathPredictionEnabled">
-            <label class="help-label">
-              Path prediction ${html.raw(icon.help)}
-              <p class="app-tooltip">
+          <div class="config-field-heading">
+            <label for="pathPredictionEnabled">Path prediction</label>
+            <span class="help-label" tabindex="0" aria-label="About Path prediction">
+              ${html.raw(icon.help)}
+              <span class="app-tooltip" role="tooltip">
                 Extrapolate short gaps between received aircraft positions before forwarding tracker updates to connected clients.
-              </p>
-            </label>:
-            <br />
-            <input type="checkbox" id="pathPredictionEnabled" ref="pathPredictionEnabled" placeholder="1" />
-          </label>
-          <div class="notice notice--warning">
-            <svg class="icon-spacing" style="width: 24px; height: 24px;" viewBox="0 0 24 24"><path fill="currentColor" d="M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z"></path></svg>
-              EXPERIMENTAL! <br>
-              Path prediction estimates missing positions and can also correct positions received late, such as through mobile ADS-B connections. Based on the time the data was received, the system predicts the aircraft's current location while taking airspeed, vertical velocity, and turn rate into account.
+                Path prediction estimates missing positions and can correct positions received late, such as through mobile ADS-B connections. It predicts the aircraft's current location using airspeed, vertical velocity, and turn rate.
+              </span>
+            </span>
+            <span class="experimental-badge" aria-label="Experimental feature">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3Zm0 5.2 4.9 8.8H7.1L12 8.2Zm-1 2.8v3.2h2V11h-2Zm0 4.2v2h2v-2h-2Z" fill="currentColor"></path></svg>
+              Experimental
+            </span>
           </div>
+          <input type="checkbox" id="pathPredictionEnabled" ref="pathPredictionEnabled" />
 
         </div>
 
         <div class="page-section">
-          <label for="prefixEnabled">
-            <label class="help-label">
-              Add Data Source Prefix ${html.raw(icon.help)}
-              <p class="app-tooltip">
+          <div class="config-field-heading">
+            <label for="prefixEnabled">Add Data Source Prefix</label>
+            <span class="help-label" tabindex="0" aria-label="About Add Data Source Prefix">
+              ${html.raw(icon.help)}
+              <span class="app-tooltip" role="tooltip">
                 Prefix tracked callsigns with the two-letter datasource code, for example <code>OG</code> or <code>FL</code>, so connected EFBs can show how the traffic was received.
-              </p>
-            </label>:
-            <br />
-            <input type="checkbox" id="prefixEnabled" ref="prefixEnabled" placeholder="1" />
-          </label>
+              </span>
+            </span>
+          </div>
+          <input type="checkbox" id="prefixEnabled" ref="prefixEnabled" />
         </div>
 
         <div class="page-section">
-          <label for="showSquawk">
-            <label class="help-label">
-              Show Squawk ${html.raw(icon.help)}
-              <p class="app-tooltip">
+          <div class="config-field-heading">
+            <label for="showSquawk">Show Squawk</label>
+            <span class="help-label" tabindex="0" aria-label="About Show Squawk">
+              ${html.raw(icon.help)}
+              <span class="app-tooltip" role="tooltip">
                 Show a known squawk code instead of the aircraft callsign.
-              </p>
-            </label>:
-            <br />
-            <input type="checkbox" id="showSquawk" ref="showSquawk" placeholder="1" />
-          </label>
+              </span>
+            </span>
+          </div>
+          <input type="checkbox" id="showSquawk" ref="showSquawk" />
         </div>
         <br />
         ${this.buttonArray(html)}
