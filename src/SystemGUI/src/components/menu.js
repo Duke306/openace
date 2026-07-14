@@ -1,5 +1,6 @@
 import { El } from "@frameable/el";
 import store from "./store";
+import darkLogoUrl from "url:../img/generated/gatas-dark.webp";
 
 class Menu extends El {
   _setPage(page) {
@@ -7,7 +8,7 @@ class Menu extends El {
     if (window.location.hash !== `#${page}`) {
       window.history.replaceState(null, "", `#${page}`);
     }
-    window.dispatchEvent(new CustomEvent("openace:navigate", { detail: { page } }));
+    window.dispatchEvent(new CustomEvent("gatas:navigate", { detail: { page } }));
     this.$update();
   }
 
@@ -31,12 +32,10 @@ class Menu extends El {
 
     return html`
       <header class="app-header">
-        <a class="app-brand" href="#session" onclick=${() => this._setPage("session")}>
-          <span class="app-logo" aria-hidden="true">OA</span>
-          <span class="app-brand-copy">
-            <strong>OpenAce</strong>
-            <small>${store.state.aircraftId || "Aviation connectivity"}</small>
-          </span>
+        <a class="app-brand" href="#session" aria-label="GATAS home" onclick=${() => this._setPage("session")}>
+          <picture class="app-brand-picture">
+            <img src="${darkLogoUrl}" alt="GATAS" width="320" height="80" />
+          </picture>
         </a>
 
         <nav class="app-nav" aria-label="Primary navigation">

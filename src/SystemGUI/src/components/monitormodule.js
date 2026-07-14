@@ -698,7 +698,7 @@ class MonitorModule extends El {
   render(html) {
     let items = this._filteredItems();
     return html`
-      <section class="page-section">
+      <section class="page-section page-section--flat monitor-section">
         <header class="monitor-heading">
           <p class="monitor-heading__eyebrow">Live monitoring</p>
           <h2>${this.selected}</h2>

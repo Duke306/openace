@@ -256,7 +256,7 @@ class AircraftConfig extends El {
     let help = this.state.showHelp ? this._help(html) : "";
     return html`
     <form ref="form" autocomplete="off" novalidate="novalidate">
-      <section class="page-section app-grid app-grid--2">
+      <section class="page-section page-section--flat app-grid app-grid--2">
         <label for="callsign">
           Call Sign:
           <input type="text" id="callsign" ref="callSign" placeholder="Call Sign" ${this.selected ? "disabled" : ""}/>
@@ -279,7 +279,7 @@ class AircraftConfig extends El {
         </label>
       </section>
 
-      <section class="page-section app-grid app-grid--2">
+      <section class="page-section page-section--flat aircraft-protocols app-grid app-grid--2">
         <div>
             <h3>Protocol modes</h3>
 

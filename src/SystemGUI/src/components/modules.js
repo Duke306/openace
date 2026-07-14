@@ -121,14 +121,14 @@ class GaTasModules extends El {
         this.state.whatToShow = "modules";
       }
     };
-    window.addEventListener("openace:navigate", this._onNavigate);
+    window.addEventListener("gatas:navigate", this._onNavigate);
     this._fetchData();
   }
 
   unmounted() {
     this._running = false;
     clearTimeout(this.timer);
-    window.removeEventListener("openace:navigate", this._onNavigate);
+    window.removeEventListener("gatas:navigate", this._onNavigate);
   }
 
   _postConstructToString(value) {
@@ -266,7 +266,7 @@ class GaTasModules extends El {
       <section class="page-section">
         <header>
           <h2>Modules</h2>
-          <p>Monitor, configure, and enable OpenAce services.</p>
+          <p>Monitor, configure, and enable GATAS services.</p>
         </header>
         <div class="table-wrap">
         <table class="data-table module-table">

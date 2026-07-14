@@ -3,7 +3,10 @@
   "source": "src/index.html",
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "scripts": {
+    "optimize:images": "node scripts/optimize-images.mjs",
+    "prestart": "npm run optimize:images",
     "start": "rm -rf dist && rm -rf .parcel-cache && parcel",
+    "prebuild": "npm run optimize:images",
     "build": "rm -rf dist && rm -rf .parcel-cache && parcel build src/*.* --no-source-maps --config .parcelrcrelease && cp captive/* dist/",
     "prettier": "npx prettier . --write",
     "test": "node --test test/**/*.test.mjs"
@@ -15,7 +18,8 @@
     "@parcel/transformer-sass": "2.16.4",
     "http-proxy-middleware": "3.0.0",
     "parcel": "2.16.4",
-    "prettier": "3.2.5"
+    "prettier": "3.2.5",
+    "sharp": "^0.34.5"
   },
   "dependencies": {
     "@frameable/el": "0.7.3",

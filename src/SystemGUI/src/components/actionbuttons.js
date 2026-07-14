@@ -41,7 +41,7 @@ class ActionButtons extends El {
       <div class="app-modal__surface">
         <article>
           <header>
-            <h4 id="restart-title">Restart OpenAce?</h4>
+            <h4 id="restart-title">Restart GATAS?</h4>
           </header>
           <div class="app-modal__body">
             <p>
@@ -181,7 +181,7 @@ class ActionButtons extends El {
       <section class="page-section">
         <header>
           <h2>Device actions</h2>
-          <p>Maintenance and connectivity controls for this OpenAce device.</p>
+          <p>Maintenance and connectivity controls for this GATAS device.</p>
         </header>
         <div class="action-grid">
           <div>${this._restartButton(html)}</div>
