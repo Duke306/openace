@@ -8,10 +8,14 @@ OpenAce is a multi-protocol aviation conspicuity device (OGN, FLARM, ADS-L, FANE
 
 ## Working Rules
 
+- Prefix every shell command with `rtk`. Use the matching `rtk` subcommand when available, or `rtk run` for commands without a dedicated wrapper.
 - Prefer targeted edits. Do not touch `src/vendor/` unless the task explicitly requires it.
+- Prefer `etl::optional<T>` when a function may not produce a value. Avoid boolean return values combined with output references.
+- For richer or multi-value results, return a small struct declared next to the API so callers can use `auto result = function();` instead of passing output references.
 - Keep desktop test code and embedded code paths aligned when changing shared module behavior.
 - Use fixed-size ETL containers and avoid introducing dynamic-allocation-heavy patterns into firmware code.
 - Always use braces for control-flow bodies, even when the body is a single line.
+- Do not introduce trailing-underscore variable names by default. Prefer the existing local naming style unless a specific file or API already requires a different convention.
 - Handle mutexes with RAII `SemaphoreGuard` scopes. Preferred pattern:
   ```cpp
   if (auto guard = SemaphoreGuard(1000, instance->mutex))
@@ -167,6 +171,13 @@ When adding or wiring a new module, update the `[Modules]` section accordingly.
 ### Memory Model
 
 Firmware code favors fixed-size containers and predictable memory behavior. Prefer ETL types such as `etl::unordered_map`, `etl::string`, and `etl::vector` with explicit compile-time limits.
+
+## Aircraft Timestamp Model
+
+- `AircraftPositionInfo.timestamp` is a local relative timestamp in microseconds and should be in the `CoreUtils::timeUs32()` frame.
+- Received aircraft packet timestamps represent the remote send time, not the local receive time. By the time a packet is received, the restored packet timestamp is expected to be less than or equal to the local 64-bit epoch timestamp from `CoreUtils::msSinceEpoch()`.
+- For packet formats that only encode time within a minute, resolve the timestamp as now-or-past, never as a future timestamp. Use a small max-delta window to reject ambiguous or stale data.
+- When converting packet send time to `AircraftPositionInfo.timestamp`, compute elapsed time against `CoreUtils::msSinceEpoch()` and subtract that elapsed duration from `CoreUtils::timeUs32()`.
 
 ## Testing Notes
 

@@ -52,13 +52,17 @@ class AircraftTrackerConfig extends ModuleConfig {
 
   _setFormData(data) {
     this.$refs.ddbEnabled.checked = data.ddbEnabled;
+    this.$refs.pathPredictionEnabled.checked = data.ppEnabled;
     this.$refs.prefixEnabled.checked = data.prefixEnabled;
+    this.$refs.showSquawk.checked = data.showSquawk;
   }
 
   _getFormData() {
     return {
       ddbEnabled: this.$refs.ddbEnabled.checked,
+      ppEnabled: this.$refs.pathPredictionEnabled.checked,
       prefixEnabled: this.$refs.prefixEnabled.checked,
+      showSquawk: this.$refs.showSquawk.checked,
     };
   }
 
@@ -70,7 +74,8 @@ class AircraftTrackerConfig extends ModuleConfig {
         calculated positions (when enabled) and will ensure that attached EFBs get regular updates.
       </p>
       <form ref="form" autocomplete="off" novalidate="novalidate">
-        <div class="section grid md-columns-2 lg-columns-2">
+
+      <div class="section">
           <label for="ddbEnabled">
             <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
               DDB Enabled ${html.raw(icon.help)}
@@ -81,13 +86,32 @@ class AircraftTrackerConfig extends ModuleConfig {
             <br />
             <input type="checkbox" id="ddbEnabled" ref="ddbEnabled" placeholder="1" />
           </label>
-          
           <div class="alert alert-warning">
             <svg class="mr-2" style="width: 24px; height: 24px;" viewBox="0 0 24 24"><path fill="currentColor" d="M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z"></path></svg>
             Please note that the DDB is created and maintained by aviation enthusiasts and is in no way an official registry.
             Because of this, you may encounter aircraft whose callsign differs from what ATC uses.
           </div>
         </div>
+
+        <div class="section">
+          <label for="pathPredictionEnabled">
+            <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
+              Path prediction ${html.raw(icon.help)}
+              <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
+                Extrapolate short gaps between received aircraft positions before forwarding tracker updates to connected clients.
+              </p>
+            </label>:
+            <br />
+            <input type="checkbox" id="pathPredictionEnabled" ref="pathPredictionEnabled" placeholder="1" />
+          </label>
+          <div class="alert alert-warning">
+            <svg class="mr-2" style="width: 24px; height: 24px;" viewBox="0 0 24 24"><path fill="currentColor" d="M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z"></path></svg>
+              EXPERIMENTAL! <br>
+              Path prediction estimates missing positions and can also correct positions received late, such as through mobile ADS-B connections. Based on the time the data was received, the system predicts the aircraft's current location while taking airspeed, vertical velocity, and turn rate into account.
+          </div>
+
+        </div>
+
         <div class="section">
           <label for="prefixEnabled">
             <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
@@ -98,6 +122,19 @@ class AircraftTrackerConfig extends ModuleConfig {
             </label>:
             <br />
             <input type="checkbox" id="prefixEnabled" ref="prefixEnabled" placeholder="1" />
+          </label>
+        </div>
+
+        <div class="section">
+          <label for="showSquawk">
+            <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
+              Show Squawk ${html.raw(icon.help)}
+              <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
+                Show a known squawk code instead of the aircraft callsign.
+              </p>
+            </label>:
+            <br />
+            <input type="checkbox" id="showSquawk" ref="showSquawk" placeholder="1" />
           </label>
         </div>
         <br />

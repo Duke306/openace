@@ -13,12 +13,27 @@ GATAS::PostConstruct AircraftTracker::postConstruct()
         return GATAS::PostConstruct::MUTEX_ERROR;
     }
     GATAS_REGISTER_MUTEX(trackedAircraftMutex, "AircraftTracker_mutex");
+
+    sendTimerHandle = xTimerCreate(AircraftTracker::NAME.cbegin(),
+                                   TASK_DELAY_MS(1000 / TIMESLICES),
+                                   pdTRUE,
+                                   this,
+                                   sendTimerCallback);
+    if (sendTimerHandle == nullptr)
+    {
+        return GATAS::PostConstruct::TIMER_ERROR;
+    }
+
     return GATAS::PostConstruct::OK;
 }
 
 void AircraftTracker::start()
 {
     xTaskCreate(aircraftTrackerTrampoline, AircraftTracker::NAME.cbegin(), configMINIMAL_STACK_SIZE + 768, this, tskIDLE_PRIORITY + 2, &taskHandle);
+    if (xTimerStart(sendTimerHandle, portMAX_DELAY) != pdPASS)
+    {
+        GATAS_WARN("AircraftTracker: failed to start send timer");
+    }
     getBus().subscribe(*this);
 };
 
@@ -28,9 +43,11 @@ void AircraftTracker::on_receive(const GATAS::ConfigUpdatedMsg &msg)
     {
         auto gaTasConfig = msg.config.gaTasConfig();
         ownshipAddress = gaTasConfig.conspicuity.icaoAddress;
-        groundStation_ = gaTasConfig.conspicuity.groundStation;
+        groundStation = gaTasConfig.conspicuity.groundStation;
         trackedAircraft.ddbEnabled(msg.config.valueByPath(false, NAME, "ddbEnabled"));
+        trackedAircraft.pathPrediction(msg.config.valueByPath(false, NAME, "ppEnabled"));
         trackedAircraft.prefixEnabled(msg.config.valueByPath(false, NAME, "prefixEnabled"));
+        trackedAircraft.showSquawk(msg.config.valueByPath(false, NAME, "showSquawk"));
     }
 }
 
@@ -103,6 +120,7 @@ void AircraftTracker::getData(etl::string_stream &stream, const etl::string_view
 void AircraftTracker::on_receive(const GATAS::IngressAircraftPositionsMsg &msg)
 {
     GATAS_MEASURE("on_receive", 1000);
+    auto op = SpinlockGuard::copyWithLock(CoreUtils::sharedSpinLock(), ownshipPosition);
     for (const auto &aircraft : msg.positions)
     {
         if (ownshipAddress == aircraft.address)
@@ -110,9 +128,9 @@ void AircraftTracker::on_receive(const GATAS::IngressAircraftPositionsMsg &msg)
             continue;
         }
         uint8_t dataSource = static_cast<uint8_t>(aircraft.dataSource);
-        if (dataSource < antennaRadiationPattern.size())
+        if (ownshipPositionValid && dataSource < antennaRadiationPattern.size())
         {
-            antennaRadiationPattern[dataSource].put(aircraft);
+            antennaRadiationPattern[dataSource].put(aircraft, op.lat, op.lon, op.track);
         }
         if (!queue.full())
         {
@@ -128,6 +146,15 @@ void AircraftTracker::on_receive(const GATAS::IngressAircraftPositionsMsg &msg)
     xTaskNotify(taskHandle, TaskState::NEW, eSetBits);
 }
 
+void AircraftTracker::on_receive(const GATAS::OwnshipPositionMsg &msg)
+{
+    {
+        SpinlockGuard guard(CoreUtils::sharedSpinLock());
+        ownshipPosition = msg.position;
+    }
+    ownshipPositionValid = true;
+}
+
 void AircraftTracker::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
 {
     GATAS_MEASURE("on_receive", 1000);
@@ -135,7 +162,7 @@ void AircraftTracker::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
     // radioParameters.id == 1 means O-Band Uplink
     // We do that here, because we neeed to send 10 aircraft instead of just ownship
     // Only function as ADSL uplink in ground station mode
-    if (groundStation_ && msg.radioParameters.config->dataSource() == GATAS::DataSource::ADSLO_HDR && msg.radioParameters.id == 1)
+    if (groundStation && msg.radioParameters.config->dataSource() == GATAS::DataSource::ADSLO_HDR && msg.radioParameters.id == 1)
     {
         if (!tXqueue.full())
         {
@@ -154,9 +181,10 @@ void AircraftTracker::on_receive(const GATAS::IngressAircraftPositionMsg &msg)
     }
 
     uint8_t dataSource = static_cast<uint8_t>(msg.position.dataSource);
-    if (dataSource < antennaRadiationPattern.size())
+    auto op = SpinlockGuard::copyWithLock(CoreUtils::sharedSpinLock(),  ownshipPosition);
+    if (ownshipPositionValid && dataSource < antennaRadiationPattern.size())
     {
-        antennaRadiationPattern[dataSource].put(msg);
+        antennaRadiationPattern[dataSource].put(msg, op.lat, op.lon, op.track);
     }
 
     if (!queue.full())
@@ -175,13 +203,22 @@ void AircraftTracker::aircraftTrackerTrampoline(void *arg)
     static_cast<AircraftTracker *>(arg)->aircraftTrackerTask(arg);
 }
 
+void AircraftTracker::sendTimerCallback(TimerHandle_t timer)
+{
+    auto tracker = static_cast<AircraftTracker *>(pvTimerGetTimerID(timer));
+    if (tracker != nullptr && tracker->taskHandle != nullptr)
+    {
+        xTaskNotify(tracker->taskHandle, TaskState::TIMER, eSetBits);
+    }
+}
+
 void AircraftTracker::aircraftTrackerTask(void *arg)
 {
     (void)arg;
     while (true)
     {
         uint32_t notifyValue = 0;
-        xTaskNotifyWait(pdFALSE, ULONG_MAX, &notifyValue, TASK_DELAY_MS(1000 / TIMESLICES));
+        xTaskNotifyWait(pdFALSE, ULONG_MAX, &notifyValue, portMAX_DELAY);
         auto guard = lockTrackedAircraft();
 
         // Handle timers
@@ -191,23 +228,23 @@ void AircraftTracker::aircraftTrackerTask(void *arg)
             getBus().receive(GATAS::AdapativeRadiusMsg(trackedAircraft.radius()));
         }
 
-        // Handle timers
-        if (notifyValue == 0)
+        // Apply new measurements before a simultaneous timer tick predicts output.
+        if (notifyValue & TaskState::NEW)
+        {
+            handleNew();
+        }
+
+        if (ownshipPositionValid && (notifyValue & TaskState::TIMER))
         {
             sendEligibleAircraft();
         }
 
         // Handle timers
-        if (notifyValue & TaskState::CLOSEST_10)
+        if (ownshipPositionValid && (notifyValue & TaskState::CLOSEST_10))
         {
             closest10();
         }
 
-        // Handle new aircraft
-        if (notifyValue & TaskState::NEW)
-        {
-            handleNew();
-        }
     }
 }
 
@@ -228,15 +265,18 @@ void AircraftTracker::handleTrackedAircraft(const GATAS::AircraftPositionInfo &p
 
 void AircraftTracker::sendEligibleAircraft()
 {
+    auto op = SpinlockGuard::copyWithLock(CoreUtils::sharedSpinLock(),  ownshipPosition);
+
     trackedAircraft.sendScheduled(
-        etl::delegate<void(const GATAS::AircraftPositionInfo &)>::create<AircraftTracker, &AircraftTracker::handleTrackedAircraft>(*this));
+        etl::delegate<void(const GATAS::AircraftPositionInfo &)>::create<AircraftTracker, &AircraftTracker::handleTrackedAircraft>(*this), op);
 }
 
 void AircraftTracker::closest10()
 {
     if (Tx_Struct msg; tXqueue.pop(msg))
     {
-        auto aircraft = trackedAircraft.forClosest();
+        auto op = SpinlockGuard::copyWithLock(CoreUtils::sharedSpinLock(),  ownshipPosition);
+        auto aircraft = trackedAircraft.adslUplinkTrigger(op);
         getBus().receive(GATAS::EgressAircraftPositionsMsg(aircraft, msg.radioParameters, msg.radioNo));
         tXqueue.clear();
     }

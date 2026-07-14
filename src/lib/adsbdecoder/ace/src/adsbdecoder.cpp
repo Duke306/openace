@@ -61,7 +61,7 @@ void ADSBDecoder::processAdsbData(const uint8_t *data, uint8_t length)
     // Two phase decoder to first decode the address.. when not in ignoredAirplanes continue decoding
     mode_s_decode_phase1(&state, &mm, data);
 
-    if (mm.msgtype != 17)
+    if (mm.msgtype != 17 && mm.msgtype != 5 && mm.msgtype != 21)
     {
         return;
     }
@@ -76,6 +76,7 @@ void ADSBDecoder::processAdsbData(const uint8_t *data, uint8_t length)
     {
         // printf("Processing  a:%06lX \n", mm.aa);
         auto usTime = CoreUtils::timeUs32Raw();
+        auto positionTime = CoreUtils::timeUs32();
         if (ignoredAirplanes.ifContainsThenUpdate(mm.aa, usTime))
         {
             statistics.totalMsgIgnored += 1;
@@ -87,6 +88,17 @@ void ADSBDecoder::processAdsbData(const uint8_t *data, uint8_t length)
         if (!adsbDataCollector.start(mm.aa, usTime))
         {
             statistics.knownAircraftFull += 1;
+            return;
+        }
+
+        if (mm.msgtype == 5 || mm.msgtype == 21)
+        {
+            adsbDataCollector.updateSquawk(mm.identity);
+            return;
+        }
+
+        if (mm.msgtype != 17)
+        {
             return;
         }
 
@@ -184,7 +196,7 @@ void ADSBDecoder::processAdsbData(const uint8_t *data, uint8_t length)
 
             // printf("Received  t:%06ld a:%06lX gnsAlt:%ldm gnsAlt:%0.2fft\n", usTime / 1'000'000, current.icao, current.ellipseHeight, current.ellipseHeight * M_TO_FT);
             getBus().receive(GATAS::IngressAircraftPositionMsg{
-                {usTime - ADSBDECODER_US_DELAY_SERIAL_AND_OVERHEAD,
+                {positionTime - ADSBDECODER_US_DELAY_SERIAL_AND_OVERHEAD,
                  current.callSign,
                  current.icao,
                  GATAS::AddressType::ICAO,
@@ -201,8 +213,7 @@ void ADSBDecoder::processAdsbData(const uint8_t *data, uint8_t length)
                  static_cast<int16_t>(current.heading),
                  0.0f,
                  fromOwn.distance,
-                 fromOwn.relNorth,
-                 fromOwn.relEast}});
+                 current.squawk}});
         }
     }
     else

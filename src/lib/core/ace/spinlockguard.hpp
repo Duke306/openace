@@ -26,11 +26,11 @@ public:
     }
 
     /**
-     * Request a spinlock. When required is set to value, the function won't panic if no spinlock is available.
+     * Request a spinlock. When required is set to false, the function won't panic if no spinlock is available.
      */
-    static spin_lock_t *claim(bool required = true)
+    static spin_lock_t *claim()
     {
-        return spin_lock_instance(spin_lock_claim_unused(required));
+        return spin_lock_instance((uint)spin_lock_claim_unused(true));
     }
 
     SpinlockGuard(const SpinlockGuard &) = delete;
@@ -46,10 +46,10 @@ public:
     }
 
     template <typename T1, typename T2>
-    inline static const auto copyWithLock(spin_lock_t *lock, const T1 &val1, const T2 &val2)
+    inline static auto copyWithLock(spin_lock_t *lock, const T1 &val1, const T2 &val2)
     {
         SpinlockGuard guard(lock);
-        return etl::pair<const T1 &, const T2 &>(val1, val2);
+        return etl::pair<T1, T2>(val1, val2);
     }
 
     operator bool() const
