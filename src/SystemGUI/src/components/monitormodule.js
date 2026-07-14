@@ -358,20 +358,28 @@ class MonitorModule extends El {
       const name = item.name.split(':')[0];
 
       return html`
-      <tr>
-        <th style="width:33%" scope="row">${name}</th>
-        <td>
-          <div style="display:flex; align-items:center; gap:10px">
-            <canvas ref="${id}" width="120" height="120"></canvas>
-            <div style="font-size:11px; line-height:1.4">
-              <div>
-                <span style="display:inline-block;width:12px;height:3px;background:${this._colorSchema.avgDistance};margin-right:6px"></span>
-                Avg Distance (${avgDistance})
-              </div>
+      <tr class="monitor-polar-row">
+        <td colspan="2">
+          <div class="polar-monitor-card">
+            <strong class="polar-monitor-card__name">${name}</strong>
+            <div class="polar-monitor">
+              <canvas class="polar-monitor__chart" ref="${id}" width="120" height="120"></canvas>
+              <div class="polar-monitor__legend">
+                <div class="polar-monitor__legend-item">
+                  <span class="polar-monitor__swatch" style="background:${this._colorSchema.avgDistance}"></span>
+                  <span>
+                    <span class="polar-monitor__label">Average distance</span>
+                    <strong class="polar-monitor__value">${avgDistance}</strong>
+                  </span>
+                </div>
 
-              <div>
-                <span style="display:inline-block;width:12px;height:3px;background:${this._colorSchema.maxDistance};margin-right:6px"></span>
-                Max Distance (${maxDistance})
+                <div class="polar-monitor__legend-item">
+                  <span class="polar-monitor__swatch" style="background:${this._colorSchema.maxDistance}"></span>
+                  <span>
+                    <span class="polar-monitor__label">Maximum distance</span>
+                    <strong class="polar-monitor__value">${maxDistance}</strong>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -678,7 +686,7 @@ class MonitorModule extends El {
     return html`
     <tr>
       <th style="width:33%" scope="row">${result.name}</th>
-      <td style="${rendered.style}">${result.value}</td>
+      <td class="monitor-value ${rendered.isStructured ? "is-structured" : ""}" style="${rendered.style}">${result.value}</td>
     </tr>
   `;
   }
@@ -690,14 +698,20 @@ class MonitorModule extends El {
   render(html) {
     let items = this._filteredItems();
     return html`
-      <h4>Monitoring: ${this.selected}</h4>
-      <small>
-        <table>
+      <section class="page-section">
+        <header class="monitor-heading">
+          <p class="monitor-heading__eyebrow">Live monitoring</p>
+          <h2>${this.selected}</h2>
+          <p>Module diagnostics and counters update automatically.</p>
+        </header>
+        <div class="table-wrap">
+        <table class="data-table monitor-table">
           <tbody>
             ${items.map((item) => html` ${this._row(html, item)} `)}
           </tbody>
         </table>
-      </small>
+        </div>
+      </section>
     `;
   }
 }

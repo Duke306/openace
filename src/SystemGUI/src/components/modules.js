@@ -116,12 +116,19 @@ class GaTasModules extends El {
   mounted() {
     this._running = false;
     this._newHwIdx = 0;
+    this._onNavigate = (event) => {
+      if (event.detail?.page === "modules") {
+        this.state.whatToShow = "modules";
+      }
+    };
+    window.addEventListener("openace:navigate", this._onNavigate);
     this._fetchData();
   }
 
   unmounted() {
     this._running = false;
     clearTimeout(this.timer);
+    window.removeEventListener("openace:navigate", this._onNavigate);
   }
 
   _postConstructToString(value) {
@@ -207,7 +214,7 @@ class GaTasModules extends El {
   _showModuleStatus(html) {
     return html`
       <monitor-module key="config" selected=${this.state.selectedModule}></monitor-module>
-      <button class="btn" onclick=${() => (this.state.whatToShow = "modules")}>Close</button>
+      <button class="secondary" onclick=${() => (this.state.whatToShow = "modules")}>Back to modules</button>
     `;
   }
 
@@ -217,32 +224,32 @@ class GaTasModules extends El {
     } else {
       let monitorBtn =
         item.poststatus == 1 && this.monitorable.includes(item.name)
-          ? html`<button class="btn xs" onclick=${() => this._monitorModule(item.name)}>👀</button>`
+          ? html`<button class="secondary compact-button" title="Monitor ${item.name}" aria-label="Monitor ${item.name}" onclick=${() => this._monitorModule(item.name)}>${html.raw(icon.monitor)}</button>`
           : "";
       let configureBtn = this.configurable.includes(item.name)
-        ? html`<button class="btn xs" ${this.configurable.includes(item.name) ? "" : "disabled"} onclick=${() => this._configureModule(item.name)}>🛠️</button>`
+        ? html`<button class="secondary compact-button" title="Configure ${item.name}" aria-label="Configure ${item.name}" onclick=${() => this._configureModule(item.name)}>⚙</button>`
         : "";
 
       let toggleBtn = this.state.enabled.includes(item.name)
-        ? html`<button class="btn xs btn-success" onclick=${() => this._toggleModule(item.name)}>Ⓘ</button>`
-        : html`<button class="btn xs btn-error" onclick=${() => this._toggleModule(item.name)}>ⓧ</button>`;
+        ? html`<button class="success compact-button" title="Disable ${item.name}" aria-label="Disable ${item.name}" onclick=${() => this._toggleModule(item.name)}>✓</button>`
+        : html`<button class="danger compact-button" title="Enable ${item.name}" aria-label="Enable ${item.name}" onclick=${() => this._toggleModule(item.name)}>×</button>`;
 
       let enabledBtn = this.enablers.includes(item.name) ? toggleBtn : "";
 
       let info = "";
       if (this.info[item.name]) {
-        info = html` <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
+        info = html` <span class="icon-button" tabindex="0" aria-label="About ${item.name}">
           ${html.raw(icon.help)}
-          <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
+          <span class="app-tooltip" role="tooltip">
             ${this.info[item.name](html)}
-          </p>
-        </label>`;
+          </span>
+        </span>`;
       }
 
       return html` <tr>
-        <th style="width:25%" scope="row">${item.name} ${info}</th>
+        <th scope="row">${item.name} ${info}</th>
         <td>${this._postConstructToString(item.poststatus)}</td>
-        <td style="width:150px">${enabledBtn} ${configureBtn} ${monitorBtn}</td>
+        <td><div class="module-actions">${enabledBtn} ${configureBtn} ${monitorBtn}</div></td>
       </tr>`;
     }
 
@@ -256,13 +263,19 @@ class GaTasModules extends El {
     let items = this._filteredItems();
     return html`
 
-      <div class="section">
-        <table>
+      <section class="page-section">
+        <header>
+          <h2>Modules</h2>
+          <p>Monitor, configure, and enable OpenAce services.</p>
+        </header>
+        <div class="table-wrap">
+        <table class="data-table module-table">
           <tbody>
             ${items.map((item) => html` ${this._row(html, item)} `)}
           </tbody>
         </table>
-      </div>
+        </div>
+      </section>
     `;
   }
 
