@@ -227,7 +227,7 @@ void ADSLAce::adsl_receivedTraffic(const ADSL::Header &header, const ADSL::Traff
     // printf("ADSL: address:%06X latitude:%0.6f longitude:%0.6f altitude:%ld climbRate:%0.2f speed:%0.2f heading:%0.2f \n",
     // packet.address, fLatitude, fLongitude, packet.getaltitudeGeoid(), packet.getVerticalRate(), packet.getGroundSpeed(), packet.getTrack());
     auto epochMs = CoreUtils::msSinceEpoch();
-    auto msElapsed = etl::max(static_cast<uint32_t>(0), static_cast<uint32_t>(epochMs - tp.timestampRestored(epochMs)));
+    auto msElapsed = static_cast<int32_t>(epochMs - tp.timestampRestored(epochMs));
     GATAS::IngressAircraftPositionMsg aircraftPosition{
         GATAS::AircraftPositionInfo{
             CoreUtils::timeUs32() - (msElapsed * 1000),
@@ -246,9 +246,7 @@ void ADSLAce::adsl_receivedTraffic(const ADSL::Header &header, const ADSL::Traff
             tp.speed(),
             static_cast<int16_t>(tp.groundTrack()),
             0.f,
-            fromOwn.distance,
-            fromOwn.relNorth,
-            fromOwn.relEast},
+            fromOwn.distance},
         0};
     getBus().receive(aircraftPosition);
     (void)tp;
@@ -281,7 +279,7 @@ void ADSLAce::adsl_receivedUplinkTraffic(const ADSL::Header &header, etl::span<c
         //     continue;
         // }
         auto epochMs = CoreUtils::msSinceEpoch();
-        auto msElapsed = etl::max(static_cast<uint32_t>(0), static_cast<uint32_t>(epochMs - tp.timestampRestored(epochMs)));
+        auto msElapsed = static_cast<int32_t>(epochMs - tp.timestampRestored(epochMs));
 
         if (positions.full())
         {
@@ -304,9 +302,7 @@ void ADSLAce::adsl_receivedUplinkTraffic(const ADSL::Header &header, etl::span<c
             tp.speed(),
             static_cast<int16_t>(tp.groundTrack()),
             0.f,
-            fromOwn.distance,
-            fromOwn.relNorth,
-            fromOwn.relEast});
+            fromOwn.distance});
     }
 
     if (!positions.empty())
@@ -394,7 +390,7 @@ void ADSLAce::adsl_buildStatusPayload(const void *ctx, ADSL::StatusPayload &sp)
     sp.oBandHdrReceiveCapability(ADSL::StatusPayload::ReceiveCapability::Partial);
     sp.adslTrafficUplinkClient(true);
 
-    // TODO: Find a way to correctly know what
+    // TODO: Find a way to correctly know what is ocnfigured for the current aircraft
     sp.eReceiveConspicuityBits(ADSL::StatusPayload::EConspicuityBits::EC_FANET);
     sp.eReceiveConspicuityBits(ADSL::StatusPayload::EConspicuityBits::EC_FLARM);
     sp.eReceiveConspicuityBits(ADSL::StatusPayload::EConspicuityBits::EC_OGN);

@@ -25,7 +25,7 @@ TEST_CASE( "msSinceEpoch", "[single-file]" )
 TEST_CASE( "msInSecond", "[single-file]" )
 {
     time_us_Value = 23456623;
-    CoreUtils::setPPS(00);
+    CoreUtils::setPPS(0);
     REQUIRE( CoreUtils::msInSecond() == 0 );
 
     time_us_Value = time_us_Value + 1758'000;
@@ -40,6 +40,23 @@ TEST_CASE( "timeUs32 must be alliged with PPS", "[single-file]" )
     REQUIRE( CoreUtils::timeUs32() == 23216500 );
 }
 
+TEST_CASE("setPPS handles signed software offsets", "[single-file]")
+{
+    time_us_Value = 23'000'100;
+    CoreUtils::setPPS(250);
+    REQUIRE(CoreUtils::timeUs32() == 23'000'250);
+    REQUIRE(CoreUtils::timeUs64() == 23'000'250);
+    time_us_Value += 150;
+    REQUIRE(CoreUtils::usInSecond() == 400);
+    REQUIRE(CoreUtils::timeUs32() == 23'000'400);
+
+    time_us_Value = 23'000'250;
+    CoreUtils::setPPS(-100);
+    REQUIRE(CoreUtils::timeUs32() == 22'999'900);
+    REQUIRE(CoreUtils::timeUs64() == 22'999'900);
+    REQUIRE(CoreUtils::usInSecond() == 999'900);
+}
+
 TEST_CASE( "usToReference must handle wraparounds", "[single-file]" )
 {
     REQUIRE( CoreUtils::usToReference(1000, 750) == 250);
@@ -50,6 +67,18 @@ TEST_CASE( "usToReference must handle wraparounds", "[single-file]" )
 
     REQUIRE( CoreUtils::usToReference(0xFFFFFF-1000, 0xFFFFFF-750) == -250);
     REQUIRE( CoreUtils::usToReference(0xFFFFFF-750, 0xFFFFFF-1000) == 250);
+}
+
+TEST_CASE( "usToReference must handle true uint32_t rollover", "[single-file]" )
+{
+    constexpr uint32_t justBeforeWrap = UINT32_MAX - 250;
+    constexpr uint32_t justAfterWrap = 500;
+
+    // reference in the past across the 32-bit timer wrap
+    REQUIRE( CoreUtils::usToReference(justBeforeWrap, justAfterWrap) == -751);
+
+    // reference in the future across the 32-bit timer wrap
+    REQUIRE( CoreUtils::usToReference(justAfterWrap, justBeforeWrap) == 751);
 }
 
 TEST_CASE( "usDiff must handle wraparounds", "[single-file]" )
@@ -64,6 +93,15 @@ TEST_CASE( "usDiff must handle wraparounds", "[single-file]" )
     REQUIRE( CoreUtils::usDiff(0xFFFFFF-750, 0xFFFFFF-1000) == 250);
 }
 
+TEST_CASE( "usDiff must handle true uint32_t rollover", "[single-file]" )
+{
+    constexpr uint32_t justBeforeWrap = UINT32_MAX - 250;
+    constexpr uint32_t justAfterWrap = 500;
+
+    REQUIRE( CoreUtils::usDiff(justBeforeWrap, justAfterWrap) == 751);
+    REQUIRE( CoreUtils::usDiff(justAfterWrap, justBeforeWrap) == 751);
+}
+
 TEST_CASE( "isUsReached", "[single-file]" )
 {
     time_us_Value = 0;
@@ -75,6 +113,18 @@ TEST_CASE( "isUsReached", "[single-file]" )
 
     time_us_Value = 1000000;
     REQUIRE( CoreUtils::isUsReached(10000) == true );
+}
+
+TEST_CASE( "isUsReached must handle true uint32_t rollover", "[single-file]" )
+{
+    constexpr uint32_t justBeforeWrap = UINT32_MAX - 250;
+    constexpr uint32_t justAfterWrap = 500;
+
+    // Reference is still in the future across the 32-bit timer wrap.
+    REQUIRE( CoreUtils::isUsReached(justAfterWrap, justBeforeWrap) == false );
+
+    // Reference is already in the past across the 32-bit timer wrap.
+    REQUIRE( CoreUtils::isUsReached(justBeforeWrap, justAfterWrap) == true );
 }
 
 TEST_CASE( "msDelayToReference", "[single-file]" )
@@ -100,6 +150,51 @@ TEST_CASE( "secondsSinceEpoch", "[single-file]" )
     // ms is always round down by design so 999ms in second is still considered teh previous second
     CoreUtils::setOffsetMsSinceEpoch(1698800584510);
     REQUIRE( CoreUtils::secondsSinceEpoch() == 1698800584 );
+}
+
+TEST_CASE("timeUs32FromMsInMinute maps packet time to local PPS-aligned time", "[single-file]")
+{
+    time_us_Value = 70'321'000;
+    CoreUtils::setPPS(321'000);
+    CoreUtils::setOffsetMsSinceEpoch(43'210'321);
+
+    auto timestampUs = CoreUtils::timeUs32FromMsInMinute(9'000);
+    REQUIRE(timestampUs.has_value());
+    REQUIRE(timestampUs.value() == 69'000'000);
+    timestampUs = CoreUtils::timeUs32FromMsInMinute(10'000);
+    REQUIRE(timestampUs.has_value());
+    REQUIRE(timestampUs.value() == 70'000'000);
+    timestampUs = CoreUtils::timeUs32FromMsInMinute(10'123);
+    REQUIRE(timestampUs.has_value());
+    REQUIRE(timestampUs.value() == 70'123'000);
+    timestampUs = CoreUtils::timeUs32FromMsInMinute(5'000);
+    REQUIRE(timestampUs.has_value());
+    REQUIRE(timestampUs.value() == 65'000'000);
+
+    REQUIRE_FALSE(CoreUtils::timeUs32FromMsInMinute(11'000).has_value());
+    REQUIRE_FALSE(CoreUtils::timeUs32FromMsInMinute(55'000).has_value());
+    timestampUs = CoreUtils::timeUs32FromMsInMinute(55'321, 15'000);
+    REQUIRE(timestampUs.has_value());
+    REQUIRE(timestampUs.value() == 55'321'000);
+}
+
+TEST_CASE("timeUs32FromMsInMinute handles minute rollover and rejects stale timestamps", "[single-file]")
+{
+    time_us_Value = 59'800'000;
+    CoreUtils::setPPS(800'000);
+    CoreUtils::setOffsetMsSinceEpoch(59'800);
+
+    auto timestampUs = CoreUtils::timeUs32FromMsInMinute(59'000);
+    REQUIRE(timestampUs.has_value());
+    REQUIRE(timestampUs.value() == 59'000'000);
+    timestampUs = CoreUtils::timeUs32FromMsInMinute(59'123);
+    REQUIRE(timestampUs.has_value());
+    REQUIRE(timestampUs.value() == 59'123'000);
+    REQUIRE_FALSE(CoreUtils::timeUs32FromMsInMinute(0).has_value());
+    timestampUs = CoreUtils::timeUs32FromMsInMinute(55'000);
+    REQUIRE(timestampUs.has_value());
+    REQUIRE(timestampUs.value() == 55'000'000);
+    REQUIRE_FALSE(CoreUtils::timeUs32FromMsInMinute(48'000).has_value());
 }
 
 TEST_CASE( "distanceAccurate", "[single-file]" )

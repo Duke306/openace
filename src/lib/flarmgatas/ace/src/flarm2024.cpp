@@ -2,6 +2,7 @@
 
 #include "../flarm2024.hpp"
 #include "flarm/flarm2024packet.hpp"
+#include "ace/debug.hpp"
 #include "ace/spinlockguard.hpp"
 #include "ace/measure.hpp"
 
@@ -73,10 +74,18 @@ void Flarm2024::on_receive(const GATAS::RadioRxManchesterMsg &msg)
         datasourceTimeStats.addReceiveStat(msg.frequency, CoreUtils::msInSecond());
 
         auto aircraftCat = toAircraftCategory(packet.aircraftType());
+        const uint16_t msInMinute = static_cast<uint16_t>((epochSeconds % 60U) * 1'000U);
+        auto timeStamp = CoreUtils::timeUs32FromMsInMinute(msInMinute, 15'000);
+        if (!timeStamp.has_value())
+        {
+            GATAS_WARN("Ignoring FLARM position with invalid timestamp: msInMinute=%u",
+                       static_cast<unsigned int>(msInMinute));
+            return;
+        }
 
         GATAS::IngressAircraftPositionMsg aircraftPosition{
             GATAS::AircraftPositionInfo{
-                CoreUtils::timeUs32(),
+                timeStamp.value(),
                 "",
                 packet.aircraftId(),
                 addressTypeFromFlarm(packet.addressType()),
@@ -92,9 +101,7 @@ void Flarm2024::on_receive(const GATAS::RadioRxManchesterMsg &msg)
                 packet.groundSpeed(),
                 (int16_t)(packet.groundTrack() + 0.5f),
                 packet.turnRate(),
-                fromOwn.distance,
-                fromOwn.relNorth,
-                fromOwn.relEast},
+                fromOwn.distance},
             msg.rssidBm};
 
         statistics.receivedAircraftPositions += 1;

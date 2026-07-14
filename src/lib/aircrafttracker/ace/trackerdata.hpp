@@ -5,20 +5,24 @@
 #include "ace/models.hpp"
 #include "ace/ddb.hpp"
 
-#include "etl/array.h"
-#include "etl/unordered_map.h"
-#include "etl/scaled_rounding.h"
+#include "aircraftpathpredictor.hpp"
+
 #include "etl/algorithm.h"
+#include "etl/array.h"
+#include "etl/scaled_rounding.h"
+#include "etl/unordered_map.h"
 
 /**
  * A tracker data queue for all aircraft received
  * The more TIMESLICES the more this code will spread the positional information in a second
  * because the code will ensure only a maximum of  trackedAircraft.size() / TIMESLICES will be send per each interval
  **/
-template <size_t SIZE, uint8_t TIMESLICES>
+template <size_t SIZE, uint8_t TIMESLICES, size_t MAX_PREDICTED_AIRCRAFT = SIZE>
 class TrackerData
 {
 private:
+    static_assert(MAX_PREDICTED_AIRCRAFT <= SIZE, "MAX_PREDICTED_AIRCRAFT must not exceed SIZE");
+
     // Try to ensure that XX is minimally free to allow for burst of new aircraft
     static constexpr uint8_t ADAPTIVE_RADIUS_MIN_FREE = 4;
     // When less than X persentage the buffers is full, start ioncreaing the adaptive radius
@@ -36,6 +40,7 @@ private:
 
     struct TrackerEntry
     {
+        // Next scheduler deadline for emitting this aircraft to downstream consumers.
         uint32_t sendTime;
         GATAS::AircraftPositionInfo position;
 
@@ -47,21 +52,36 @@ private:
 
     struct ByDistance
     {
-        bool operator()(const GATAS::AircraftPositionInfo *a, const GATAS::AircraftPositionInfo *b) const
+        bool operator()(const GATAS::AircraftPositionInfo &a, const GATAS::AircraftPositionInfo &b) const
         {
-            if (a->distanceFromOwn != b->distanceFromOwn)
+            if (a.distanceFromOwn != b.distanceFromOwn)
             {
-                return a->distanceFromOwn < b->distanceFromOwn;
+                return a.distanceFromOwn < b.distanceFromOwn;
             }
-            return a < b; // pointer as unique tiebreaker
+            return a.address < b.address;
         }
     };
 
     etl::unordered_map<GATAS::AircraftAddress, TrackerEntry, SIZE> trackedAircraft;
+    // The predictor can be smaller than trackedAircraft and will keep the N closest tracks.
+    AircraftPathPredictor<MAX_PREDICTED_AIRCRAFT> pathPredictor;
     DDB ddb;
     uint32_t adaptiveRadius;
-    bool ddbLookupsEnabled_;
-    bool prefixEnabled_;
+    bool ddbLookupsEnabledFlag;
+    bool prefixEnabledFlag;
+    bool showSquawkFlag;
+
+    void predictPosition(GATAS::AircraftPositionInfo &position,
+                         uint32_t currentTime,
+                         const GATAS::OwnshipPositionInfo &ownship) const
+    {
+        position = pathPredictor.extrapolatedPos(currentTime, position);
+        if (position.distanceFromOwn == static_cast<uint32_t>(INT32_MIN))
+        {
+            auto fromOwn = CoreUtils::getDistanceRelNorthRelEastInt(ownship.lat, ownship.lon, position.lat, position.lon);
+            position.distanceFromOwn = fromOwn.distance;
+        }
+    }
 
     /**
      * Recalculate the adaptive tracking radius when the tracker is nearly full.
@@ -133,12 +153,13 @@ private:
     bool removeExpired()
     {
         bool cleaned = false;
-        uint32_t us = CoreUtils::timeUs32Raw();
+        uint32_t us = CoreUtils::timeUs32();
 
         for (auto it = trackedAircraft.begin(); it != trackedAircraft.end();)
         {
-            if (CoreUtils::isUsReachedRaw(it->second.position.timestamp + MAX_POSITION_INTERPOLATIONS_USEC, us))
+            if (CoreUtils::isUsReached(it->second.position.timestamp + MAX_POSITION_INTERPOLATIONS_USEC, us))
             {
+                pathPredictor.remove(it->first);
                 it = trackedAircraft.erase(it);
                 cleaned = true;
             }
@@ -157,6 +178,7 @@ private:
         {
             if (it->second.position.distanceFromOwn >= adaptiveRadius)
             {
+                pathPredictor.remove(it->first);
                 it = trackedAircraft.erase(it);
             }
             else
@@ -167,7 +189,14 @@ private:
     }
 
 public:
-    TrackerData() : adaptiveRadius(75000), ddbLookupsEnabled_(false), prefixEnabled_(false) {}
+    TrackerData()
+        : adaptiveRadius(75000),
+          ddbLookupsEnabledFlag(false),
+          prefixEnabledFlag(false),
+          showSquawkFlag(false)
+    {
+        pathPredictor.enabled(false);
+    }
 
     template <typename Callback>
     void forEachPosition(const Callback &callback) const
@@ -180,12 +209,22 @@ public:
 
     void ddbEnabled(bool enabled)
     {
-        ddbLookupsEnabled_ = enabled;
+        ddbLookupsEnabledFlag = enabled;
     }
 
     void prefixEnabled(bool enabled)
     {
-        prefixEnabled_ = enabled;
+        prefixEnabledFlag = enabled;
+    }
+
+    void showSquawk(bool enabled)
+    {
+        showSquawkFlag = enabled;
+    }
+
+    void pathPrediction(bool enabled)
+    {
+        pathPredictor.enabled(enabled);
     }
 
     bool full() const
@@ -210,7 +249,7 @@ public:
         {
             const auto &it = pair.second;
             printf("%3d icao:%6lX sendTime:%8ld time:%8ld  dist:%ld lat:%.6f lon:%.6f\n",
-                   c, it.position.address, it.sendTime, CoreUtils::timeUs32Raw(),
+                   c, it.position.address, it.sendTime, CoreUtils::timeUs32(),
                    it.position.distanceFromOwn, it.position.lat, it.position.lon);
             c += 1;
         }
@@ -219,18 +258,31 @@ public:
     bool insert(GATAS::AircraftPositionInfo &position)
     {
         GATAS_MEASURE("insert", 400);
-        if (position.distanceFromOwn > adaptiveRadius)
-        {
-            return false;
-        }
-
-        auto time = CoreUtils::timeUs32Raw();
+        auto time = CoreUtils::timeUs32();
         auto it = trackedAircraft.find(position.address);
         if (it != trackedAircraft.end())
         {
+            // Keep the stored measurement and predictor history on the same timeline;
+            // older coordinates combined with newer history produce invalid extrapolation.
+            const int32_t sampleOrderUs = static_cast<int32_t>(position.timestamp - it->second.position.timestamp);
+            if (sampleOrderUs < 0)
+            {
+                return false;
+            }
+
+            // A current position outside the active radius supersedes the old
+            // in-range position; retaining it would predict an aircraft that has left.
+            if (position.distanceFromOwn > adaptiveRadius)
+            {
+                pathPredictor.remove(position.address);
+                trackedAircraft.erase(it);
+                return false;
+            }
+
             it->second.sendTime = time;
 
             assignCallsignFromDDB(position);
+            assignSquawkCallsign(position);
             assignDataSourcePrefix(position);
 
             // Prefer MLAT over ADSB for RADIO_PRIORITY_TIMEOUT_US to avoid jumps.
@@ -238,14 +290,20 @@ public:
             // TODO: We should revise this once all timings are validated (they are within a second, bit in finer detail)
             const bool trackedIsRadio = it->second.position.dataSource != GATAS::DataSource::ADSB;
             const bool incomingIsMlat = position.dataSource == GATAS::DataSource::ADSB;
-            const bool radioStillFresh = !CoreUtils::isUsReachedRaw(it->second.position.timestamp + RADIO_PRIORITY_TIMEOUT_US, time);
+            const bool radioStillFresh = !CoreUtils::isUsReached(it->second.position.timestamp + RADIO_PRIORITY_TIMEOUT_US, time);
             if (trackedIsRadio && incomingIsMlat && radioStillFresh)
             {
                 return false;
             }
 
             it->second.position = position;
+            pathPredictor.update(position);
             return true;
+        }
+
+        if (position.distanceFromOwn > adaptiveRadius)
+        {
+            return false;
         }
 
         if (trackedAircraft.full())
@@ -264,9 +322,11 @@ public:
         }
 
         assignCallsignFromDDB(position);
+        assignSquawkCallsign(position);
         assignDataSourcePrefix(position);
 
         trackedAircraft.insert({position.address, TrackerEntry(time, position)});
+        pathPredictor.update(position);
         return true;
     }
 
@@ -276,7 +336,7 @@ public:
      */
     void assignCallsignFromDDB(GATAS::AircraftPositionInfo &position)
     {
-        if (ddbLookupsEnabled_ && position.callSign.empty())
+        if (ddbLookupsEnabledFlag && position.callSign.empty())
         {
             auto ddbEntry = ddb.lookup(position.address);
             if (ddbEntry)
@@ -288,24 +348,40 @@ public:
 
     void assignDataSourcePrefix(GATAS::AircraftPositionInfo &position)
     {
-        if (prefixEnabled_)
+        if (prefixEnabledFlag)
         {
             GATAS::CallSign prefixedCallSign(GATAS::toShortString(position.dataSource));
             position.callSign.insert(0, prefixedCallSign);
         }
     }
 
-    void sendScheduled(const etl::delegate<void(const GATAS::AircraftPositionInfo &)> &callback)
+    void assignSquawkCallsign(GATAS::AircraftPositionInfo &position)
     {
-        auto currentTime = CoreUtils::timeUs32Raw();
+        if (showSquawkFlag && position.squawk != -1)
+        {
+            const uint16_t squawk = static_cast<uint16_t>(position.squawk);
+            position.callSign = "0000";
+            position.callSign[0] = static_cast<char>('0' + (squawk / 1000U) % 10U);
+            position.callSign[1] = static_cast<char>('0' + (squawk / 100U) % 10U);
+            position.callSign[2] = static_cast<char>('0' + (squawk / 10U) % 10U);
+            position.callSign[3] = static_cast<char>('0' + squawk % 10U);
+        }
+    }
+
+    void sendScheduled(const etl::delegate<void(const GATAS::AircraftPositionInfo &)> &callback,
+                       const GATAS::OwnshipPositionInfo &ownship)
+    {
+        auto currentTime = CoreUtils::timeUs32();
         size_t count = 0;
         size_t maxPerRound = (trackedAircraft.size() + TIMESLICES - 1) / TIMESLICES;
         for (auto &pair : trackedAircraft)
         {
             auto &it = pair.second;
-            if (CoreUtils::isUsReachedRaw(it.sendTime, currentTime))
+            if (CoreUtils::isUsReached(it.sendTime, currentTime))
             {
-                callback(it.position);
+                GATAS::AircraftPositionInfo position = it.position;
+                predictPosition(position, currentTime, ownship);
+                callback(position);
                 count += 1;
                 it.sendTime = currentTime + HEARTBEAT_TIME;
                 if (count >= maxPerRound)
@@ -319,6 +395,7 @@ public:
     void maintenance()
     {
         removeExpired();
+        pathPredictor.maintenance(CoreUtils::timeUs32());
         increaseAdaptiveRadius();
     }
 
@@ -334,27 +411,32 @@ public:
      *
      * @return A list containing up to the 10 nearest tracked aircraft.
      */
-    GATAS::AdslObandUplinkAircraft forClosest() const
+    GATAS::AdslObandUplinkAircraft adslUplinkTrigger(const GATAS::OwnshipPositionInfo &ownship) const
     {
-        GATAS_MEASURE("forClosest", 1200);
+        GATAS_MEASURE("adslUplinkTrigger", 1200);
         GATAS::AdslObandUplinkAircraft result;
+        uint32_t currentTime = CoreUtils::timeUs32();
 
-        // SHortcut with < 10 aircraft
         if (trackedAircraft.size() <= result.max_size())
         {
             for (const auto &pair : trackedAircraft)
             {
-                result.push_back(pair.second.position);
+                GATAS::AircraftPositionInfo position = pair.second.position;
+                predictPosition(position, currentTime, ownship);
+                result.push_back(position);
             }
             return result;
         }
 
-        etl::array<const GATAS::AircraftPositionInfo *, 10> closest = {};
+        // Currently cannot be changed to a other > 10 due to ADS-L uplink Limitation
+        // A bit of a hack for now
+        etl::array<GATAS::AircraftPositionInfo, 10> closest = {};
         size_t count = 0;
         auto it = trackedAircraft.begin();
         for (; it != trackedAircraft.end() && count < closest.size(); ++it)
         {
-            closest[count] = &it->second.position;
+            closest[count] = it->second.position;
+            predictPosition(closest[count], currentTime, ownship);
             count += 1;
         }
 
@@ -362,7 +444,8 @@ public:
 
         for (; it != trackedAircraft.end(); ++it)
         {
-            const auto *candidate = &it->second.position;
+            GATAS::AircraftPositionInfo candidate = it->second.position;
+            predictPosition(candidate, currentTime, ownship);
             if (ByDistance()(candidate, closest.front()))
             {
                 etl::pop_heap(closest.begin(), closest.begin() + count, ByDistance());
@@ -373,7 +456,7 @@ public:
 
         for (size_t i = 0; i < count; ++i)
         {
-            result.push_back(*closest[i]);
+            result.push_back(closest[i]);
         }
 
         return result;

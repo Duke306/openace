@@ -11,6 +11,7 @@
 #include "spinlockguard.hpp"
 
 #include "etl/string.h"
+#include "etl/optional.h"
 #include "etl/vector.h"
 
 namespace CoreUtils
@@ -18,16 +19,6 @@ namespace CoreUtils
     void init();
 
     spin_lock_t *sharedSpinLock();
-
-    /**
-     * Convert and timestamp to an uint32_t which is synced with GPS time such that at PPS the ms should reppresents (somewhere close) to a ms
-     * eg: 45'453'010 = represents 10ms after PPS
-     * \deprecated
-     */
-    inline uint32_t timeToPositionTs(int8_t hours, int8_t minutes, int8_t seconds, int16_t microseconds)
-    {
-        return hours * 3600 + minutes * 60 + seconds + microseconds;
-    }
 
     /**
      * Get a timestamp in us aligned on PPS so that for example45000 is at the exact pps
@@ -43,6 +34,12 @@ namespace CoreUtils
         return time_us_32();
     }
 
+    /**
+     * Get a 64-bit timestamp in us aligned on PPS.
+     * This uses the same hardware time base as timeUs32(), but preserves the full
+     * 64-bit range for long-running intervals and epoch-related calculations.
+     * The timestamp monotonically increases from power up.
+     */
     uint64_t timeUs64();
 
     /**
@@ -54,6 +51,7 @@ namespace CoreUtils
     {
         return timeUs64() / 1'000;
     }
+
     /**
      * Get a timestamp in seconds
      * This timestamp monotonically increases from power up and alligned with PPS
@@ -134,9 +132,9 @@ namespace CoreUtils
         return (timeUs32() / 1'000) % 1'000;
     }
 
-    inline uint16_t usInSecond()
+    inline uint32_t usInSecond()
     {
-        return (timeUs64()) % 1'000'000;
+        return timeUs64() % 1'000'000;
     }
 
     /**
@@ -195,6 +193,15 @@ namespace CoreUtils
     {
         return msSinceEpoch() % 86'400'000;
     }
+
+    /**
+     * Convert a UTC millisecond-in-minute hint into the local PPS-aligned
+     * timeUs32() frame.
+     *
+     * @return The converted timestamp, or etl::nullopt when epoch sync is
+     * unavailable or the hint is outside the allowed age window.
+     */
+    etl::optional<uint32_t> timeUs32FromMsInMinute(uint16_t msInMinute, uint16_t maxAbsDeltaMs = 10'000);
 
     inline tm localTime(uint64_t msSinceEpoch)
     {
@@ -309,7 +316,7 @@ namespace CoreUtils
         float dLon = toLon - fromLon;
         float cosToLat = cosf(toLat);
         float bearingDegrees = atan2f(sinf(dLon) * cosToLat, (cosf(fromLat) * sinf(toLat)) - (sinf(fromLat) * cosToLat * cosf(dLon)));
-        return fmodf((bearingDegrees + M_TWOPI), M_TWOPI);
+        return fmodf((bearingDegrees + M_TWOPIF), M_TWOPIF);
     }
 
     /**
@@ -327,7 +334,7 @@ namespace CoreUtils
     inline float __time_critical_func(bearingFromInDegShort)(float east, float north)
     {
         float theta = atan2f(east, north);
-        float deg = theta * 180.f / M_PI;
+        float deg = theta * 180.f / M_PIF;
         if (deg < 0.f)
         {
             deg += 360.f;
@@ -351,12 +358,13 @@ namespace CoreUtils
         int32_t relEast;
         uint16_t bearing()
         {
-            auto bearing = bearingFromInDegShort(relEast, relNorth);
-            if (bearing >= 360)
+            float bearing = bearingFromInDegShort(static_cast<float>(relEast), static_cast<float>(relNorth));
+            uint16_t rounded = static_cast<uint16_t>(bearing + 0.5f);
+            if (rounded >= 360)
             {
-                bearing = 0;
+                rounded = 0;
             }
-            return bearing;
+            return rounded;
         }
     };
 
@@ -557,8 +565,8 @@ namespace CoreUtils
         return nmea;
     }
 
-    uint32_t getTotalHeap(void);
-    uint32_t getFreeHeap(void);
+    size_t getTotalHeap(void);
+    size_t getFreeHeap(void);
 
     /**
      * Create an textual representation of the aircraftId. FOr the moment it will simply turn the aircraftID as received into a textual HEX representation
@@ -597,10 +605,17 @@ namespace CoreUtils
         }
     }
 
-    inline void hexStrToByteArray(const char *hex, uint8_t byteArray[])
+    /**
+     * Convert a HEX string to a byte array to a maximum length of 254 characters/
+     */
+    [[maybe_unused]] static void hexStrToByteArray(const char *hex, uint8_t byteArray[])
     {
         auto hexLength = strlen(hex);
-        hexStrToByteArray(hex, hexLength, byteArray);
+        if (hexLength > 254)
+        {
+            return;
+        }
+        hexStrToByteArray(hex, static_cast<uint8_t>(hexLength), byteArray);
     }
 
     /**
@@ -620,7 +635,7 @@ namespace CoreUtils
     /**
      * Returns the pin number from the pin map, when not found returns -1 to indicate that
      */
-    inline int8_t pinValue(const GATAS::PinTypeMap &pm, const GATAS::PinType &pinName, int8_t defaultValue = -1)
+    inline uint8_t pinValue(const GATAS::PinTypeMap &pm, const GATAS::PinType &pinName, uint8_t defaultValue = UINT8_MAX)
     {
         auto it = pm.find(pinName);
         if (it != pm.end())

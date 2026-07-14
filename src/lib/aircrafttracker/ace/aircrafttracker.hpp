@@ -22,7 +22,7 @@
  * Client that can connect to a host and a port and expect to receive line terminated NMEA Messages
  * Part of this code taken from the example from Raspbery
  */
-class AircraftTracker : public BaseModule, public etl::message_router<AircraftTracker, GATAS::ConfigUpdatedMsg, GATAS::RadioTxPositionRequestMsg, GATAS::IngressAircraftPositionMsg, GATAS::IngressAircraftPositionsMsg, GATAS::Every5SecMsg>
+class AircraftTracker : public BaseModule, public etl::message_router<AircraftTracker, GATAS::ConfigUpdatedMsg, GATAS::RadioTxPositionRequestMsg, GATAS::IngressAircraftPositionMsg, GATAS::IngressAircraftPositionsMsg, GATAS::OwnshipPositionMsg, GATAS::Every5SecMsg>
 {
 private:
     mutable SemaphoreHandle_t trackedAircraftMutex = nullptr;
@@ -34,6 +34,12 @@ private:
     static constexpr uint32_t AUTO_DISTANCE_TRACK_UPPER = (MAX_TRACKING_PLANES * 90) / 100;
     static constexpr uint32_t AUTO_DISTANCE_TRACK_LOWER = (MAX_TRACKING_PLANES * 80) / 100;
     static constexpr uint8_t TIMESLICES = 10;
+#if defined(PICO_RP2040)
+    // RP2040 memory is tight, so only keep path prediction state for the closest tracks.
+    static constexpr uint8_t MAX_PREDICTED_AIRCRAFT = 6;
+#else
+    static constexpr uint8_t MAX_PREDICTED_AIRCRAFT = MAX_TRACKING_PLANES;
+#endif
     struct
     {
         uint32_t queueFullErr = 0; // Might mean ther eis to much pressure on this system and the queue needs to be increased in size. But this will never work if trackedFullErr is also increasing
@@ -59,9 +65,12 @@ private:
     };
 
     TaskHandle_t taskHandle = nullptr;
-    TrackerData<MAX_TRACKING_PLANES, TIMESLICES> trackedAircraft;
+    TimerHandle_t sendTimerHandle = nullptr;
+    TrackerData<MAX_TRACKING_PLANES, TIMESLICES, MAX_PREDICTED_AIRCRAFT> trackedAircraft;
     GATAS::AircraftAddress ownshipAddress;
-    bool groundStation_ = false;
+    bool groundStation = false;
+    bool ownshipPositionValid = false;
+    GATAS::OwnshipPositionInfo ownshipPosition = {};
 
     // Producer Consumer queue to handle data between this task and the send task
     etl::queue_spsc_atomic<GATAS::AircraftPositionInfo, 16, etl::memory_model::MEMORY_MODEL_SMALL> queue;
@@ -72,6 +81,7 @@ private:
 
     enum TaskState : uint32_t
     {
+        TIMER = 1 << 1,
         NEW = 1 << 2,
         MAINTAIN = 1 << 3,
         CLOSEST_10 = 1 << 4
@@ -83,7 +93,9 @@ private:
     void on_receive(const GATAS::IngressAircraftPositionsMsg &msg);
     void on_receive(const GATAS::RadioTxPositionRequestMsg &msg);
     void on_receive(const GATAS::Every5SecMsg &msg);
+    void on_receive(const GATAS::OwnshipPositionMsg &msg);
     static void aircraftTrackerTrampoline(void *arg);
+    static void sendTimerCallback(TimerHandle_t timer);
     void aircraftTrackerTask(void *arg);
     void handleNew();
     void sendEligibleAircraft();
