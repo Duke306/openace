@@ -100,6 +100,12 @@ The Parcel build output in `src/SystemGUI/dist/` is embedded into the firmware d
 
 Before running the dev server against hardware, set the device IP in `src/SystemGUI/.proxyrc.js`.
 
+### Browser Testing Tools
+
+- `playwright-cli` is installed at `/opt/homebrew/bin/playwright-cli`. Run it through `rtk run playwright-cli ...` for reproducible command-line browser checks.
+- `playwright-mcp` is installed at `/opt/homebrew/bin/playwright-mcp`. Prefer an already configured Playwright MCP or browser-control tool when it is exposed to the agent; do not start a duplicate MCP server unnecessarily.
+- For SystemGUI work, prefer an existing Chrome tab when the task depends on its live device connection or current UI state. Use Playwright CLI for isolated or repeatable local test runs.
+
 ## Architecture
 
 ### ACE Module Pattern

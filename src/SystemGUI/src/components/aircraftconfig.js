@@ -126,30 +126,8 @@ class AircraftConfig extends El {
     return `protocolLabel${protocol.toUpperCase()}${mode}`;
   }
 
-  _protocolModeLabelStyle(active) {
-    const base = [
-      "display: inline-flex",
-      "align-items: center",
-      "gap: 0.35rem",
-      "margin: 0",
-      "padding: 0.4rem 0.75rem",
-      "border-radius: 999px",
-      "border: 1px solid #7b8794",
-      "font: inherit",
-      "outline: none",
-      "appearance: none",
-      "cursor: pointer",
-      "user-select: none",
-      "transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease",
-      "background: #f5f7fa",
-      "color: #1f2937",
-    ];
-    if (active) {
-      base.push("background: #203040");
-      base.push("color: #ffffff");
-      base.push("border-color: #203040");
-    }
-    return base.join("; ");
+  _protocolModeLabelClass(active) {
+    return `protocol-choice ${active ? "is-active" : ""}`;
   }
 
   _setProtocolMode(protocol, mode) {
@@ -166,9 +144,7 @@ class AircraftConfig extends El {
       const labelRef = this.$refs[this._protocolLabelRefName(protocol, mode.value)];
       if (labelRef) {
         const active = this.protocolModeState[protocol] === mode.value;
-        labelRef.style.background = active ? "#203040" : "#f5f7fa";
-        labelRef.style.color = active ? "#ffffff" : "#1f2937";
-        labelRef.style.borderColor = active ? "#203040" : "#7b8794";
+        labelRef.classList.toggle("is-active", active);
       }
     }
   }
@@ -280,7 +256,7 @@ class AircraftConfig extends El {
     let help = this.state.showHelp ? this._help(html) : "";
     return html`
     <form ref="form" autocomplete="off" novalidate="novalidate">
-      <div class="section grid md-columns-2 lg-columns-2">
+      <section class="page-section app-grid app-grid--2">
         <label for="callsign">
           Call Sign:
           <input type="text" id="callsign" ref="callSign" placeholder="Call Sign" ${this.selected ? "disabled" : ""}/>
@@ -301,20 +277,20 @@ class AircraftConfig extends El {
           Transponder Code:
           <input type="text" id="address" ref="address" placeholder="000000" />
         </label>
-      </div>
+      </section>
 
-      <div class="section row g-3">
+      <section class="page-section app-grid app-grid--2">
         <div>
-            <h6>Protocol Modes</h6>
+            <h3>Protocol modes</h3>
 
             ${this.protocolTypes.map(
               (item) => html`
-                <div class="mb-2" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
-                  <div class="fw-bold" style="min-width: 5rem;">${item}</div>
-                  <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
+                <div class="protocol-row">
+                  <div class="fw-bold">${item}</div>
+                  <div class="protocol-options">
                     ${this.protocolModes.map(
                       (mode) => html`
-                        <label ref="${this._protocolLabelRefName(item, mode.value)}" for="${this._protocolInputId(item, mode.value)}" style="${this._protocolModeLabelStyle(this.protocolModeState[item] === mode.value)}">
+                        <label class="${this._protocolModeLabelClass(this.protocolModeState[item] === mode.value)}" ref="${this._protocolLabelRefName(item, mode.value)}" for="${this._protocolInputId(item, mode.value)}">
                           <input
                             type="radio"
                             id="${this._protocolInputId(item, mode.value)}"
@@ -323,7 +299,6 @@ class AircraftConfig extends El {
                             value="${mode.value}"
                             ${this.protocolModeState[item] === mode.value ? "checked" : ""}
                             onchange=${() => this._onProtocolModeChange(item, mode.value)}
-                            style="margin: 0; accent-color: currentColor;"
                           />
                           <span>${mode.label}</span>
                         </label>
@@ -355,7 +330,7 @@ class AircraftConfig extends El {
           </label>
           <small>GaTas will indicate to other receivers that you don't want to be tracked.</small>
         </div>
-      </div>
+      </section>
       <hr />
       <div>
         <label for="groundStation">
@@ -372,11 +347,11 @@ class AircraftConfig extends El {
       </div>
 
       <!-- Buttons -->
-      <div class="section grid md-columns-4 lg-columns-4">
-        <input class="btn" value="Help" onclick=${() => (this.state.showHelp = true)} />
-        <input class="btn" value="Cancel" onclick=${this.close} />
-        <input class="btn" value="Reset" onclick=${this._resetForm} />
-        <input class="btn btn-primary" type="submit" value="Save" />
+      <div class="form-actions form-actions--4">
+        <input class="secondary" type="button" value="Help" onclick=${() => (this.state.showHelp = true)} />
+        <input class="secondary" type="button" value="Cancel" onclick=${this.close} />
+        <input class="secondary" type="button" value="Reset" onclick=${this._resetForm} />
+        <input type="submit" value="Save" />
       </div>
     </form>
 
@@ -386,13 +361,13 @@ class AircraftConfig extends El {
 
   _help(html) {
     return html`
-    <div id="large-modal" class="modal ${this.state.showHelp ? "show" : ""}">
-      <div class="modal-content rounded lg-mw">
-        <article class="accent-light shadow">
+    <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="aircraft-help-title">
+      <div class="app-modal__surface">
+        <article>
           <header>
-              <h4>Help</h4>
+              <h4 id="aircraft-help-title">Aircraft configuration help</h4>
           </header>
-          <div class="mh-500 overflow-auto">
+          <div class="app-modal__body">
               <p>
                 <b>Your official Transponder</b><br />
                 <ul>
@@ -418,8 +393,8 @@ class AircraftConfig extends El {
               </ul>
             </p>
           </div>
-          <footer class="px-2 jc-end">
-              <button type="button" class="btn btn-primary sm ml-1 md-ml-3" onclick=${() => (this.state.showHelp = false)}>Close</button>
+          <footer class="app-modal__actions app-modal__actions--single">
+              <button type="button" onclick=${() => (this.state.showHelp = false)}>Close</button>
           </footer>
         </article>
       </div>

@@ -18,7 +18,7 @@ class AirCraftSession extends El {
 
   render(html) {
     return html`
-      <div class="section">
+      <div class="page-section">
         <label>
           Aircraft:
           <select onchange=${this._aircraftUpdated}>

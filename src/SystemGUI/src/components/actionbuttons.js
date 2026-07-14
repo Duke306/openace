@@ -27,32 +27,31 @@ class ActionButtons extends El {
     }
 
     _restartButton(html) {
-        return html`<button class="btn xs" onclick=${() => (this.state.restartDlg = true)}>Restart</button>
+        return html`<button class="secondary" onclick=${() => (this.state.restartDlg = true)}>Restart device</button>
           ${this.state.restartDlg ? this._restartAreYouSureDlg(html) : ""} ${this.state.usbBootDlg ? this._usbBootDlgAreYouSureDlg(html) : ""}
     `;
     }
 
     _usbBootButton(html) {
-        return html`<button class="btn xs" onclick=${() => (this.state.usbBootDlg = true)}>Upload Firmware</button>`;
+        return html`<button class="secondary" onclick=${() => (this.state.usbBootDlg = true)}>Upload firmware</button>`;
     }
 
     _restartAreYouSureDlg(html) {
-        return html` <div class="modal show">
-      <div class="modal-content mw-400 rounded">
-        <article class="accent-light shadow">
+        return html` <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="restart-title">
+      <div class="app-modal__surface">
+        <article>
           <header>
-            <h4>Restart GaTas?</h4>
+            <h4 id="restart-title">Restart OpenAce?</h4>
           </header>
-          <div class="overflow-auto accent-primary" style="color: black">
-            <!-- Quick hack to make text black on Safari Desktop -->
+          <div class="app-modal__body">
             <p>
               The connection will be temporarily disconnected. Any unsaved data will be available after restart.<br />
               Are you sure?
             </p>
           </div>
-          <footer class="px-2 jc-end">
-            <button type="button" class="btn btn-error sm ml-1 md-ml-3" onclick=${this._restart}>Yes</button>
-            <button type="button" class="btn btn-primary sm ml-1 md-ml-3" onclick=${() => (this.state.restartDlg = false)}>No</button>
+          <footer class="app-modal__actions">
+            <button type="button" class="danger" onclick=${this._restart}>Restart</button>
+            <button type="button" class="secondary" onclick=${() => (this.state.restartDlg = false)}>Cancel</button>
           </footer>
         </article>
       </div>
@@ -60,14 +59,13 @@ class ActionButtons extends El {
     }
 
     _usbBootDlgAreYouSureDlg(html) {
-        return html` <div class="modal blur show">
-      <div class="modal-content mw-400 rounded">
-        <article class="shadow accent-light">
+        return html` <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="firmware-title">
+      <div class="app-modal__surface">
+        <article>
           <header>
-            <h4>Start Firmware Mode?</h4>
+            <h4 id="firmware-title">Start firmware mode?</h4>
           </header>
-          <div class="overflow-auto accent-primary" style="color: black">
-            <!-- Quick hack to make text black on Safari Desktop -->
+          <div class="app-modal__body">
             <p>
               To update GaTas, make sure it is connected to your computer with a USB cable through the <strong>Microcontroller port</strong> (the charge port
               won’t work for this step).
@@ -77,9 +75,9 @@ class ActionButtons extends El {
               <strong>GaTas.uf2</strong> file onto it. After a moment, the device will restart automatically, and GaTas will be ready to use again.
             </p>
           </div>
-          <footer class="px-2 jc-end">
-            <button type="button" class="btn btn-error sm ml-1 md-ml-3" onclick=${this._usbBoot}>Yes</button>
-            <button type="button" class="btn btn-primary sm ml-1 md-ml-3" onclick=${() => (this.state.usbBootDlg = false)}>No</button>
+          <footer class="app-modal__actions">
+            <button type="button" class="danger" onclick=${this._usbBoot}>Start firmware mode</button>
+            <button type="button" class="secondary" onclick=${() => (this.state.usbBootDlg = false)}>Cancel</button>
           </footer>
         </article>
       </div>
@@ -87,7 +85,7 @@ class ActionButtons extends El {
     }
 
     _changeHwButton(html) {
-        return html`<button class="btn xs" onclick=${() => (this.state.changeHwDlg = true)}>Change Board : ${store.state.hardwareName}</button>
+        return html`<button class="secondary" onclick=${() => (this.state.changeHwDlg = true)}>Board: ${store.state.hardwareName}</button>
           ${this.state.changeHwDlg === true ? this._changeHardwareDialog(html) : ""}
     `;
     }
@@ -103,14 +101,13 @@ class ActionButtons extends El {
     }
 
     _changeHardwareDialog(html) {
-        return html` <div class="modal show">
-      <div class="modal-content mw-400 rounded">
-        <article class="accent-light shadow">
+        return html` <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="hardware-title">
+      <div class="app-modal__surface">
+        <article>
           <header>
-          <h4>Change hardware model?</h4>
+          <h4 id="hardware-title">Change hardware model?</h4>
           </header>
-          <div class="overflow-auto accent-primary" style="color: black">
-            <!-- Quick hack to make text black on Safari Desktop -->
+          <div class="app-modal__body">
             <p>
               This will change the type of board that GaTas is running on. 
               After changing, the connection will be temporarily disconnected.
@@ -124,9 +121,9 @@ class ActionButtons extends El {
             </select>
 
           </div>
-          <footer class="px-2 jc-end">
-            <button type="button" class="btn btn-error sm ml-1 md-ml-3" onclick=${this._hardwareUpdatedConfirm}>Change</button>
-            <button type="button" class="btn btn-primary sm ml-1 md-ml-3" onclick=${() => (this.state.changeHwDlg = false)}>Cancel</button>
+          <footer class="app-modal__actions">
+            <button type="button" class="danger" onclick=${this._hardwareUpdatedConfirm}>Change and restart</button>
+            <button type="button" class="secondary" onclick=${() => (this.state.changeHwDlg = false)}>Cancel</button>
           </footer>
         </article>
       </div>
@@ -134,20 +131,20 @@ class ActionButtons extends El {
     }
 
     _startApButton(html) {
-        return html`<button class="btn xs" onclick=${() => (this.state.startApDlg = true)}>Start Access Point</button>
+        return html`<button class="secondary" onclick=${() => (this.state.startApDlg = true)}>Start access point</button>
           ${this.state.startApDlg === true ? this._startApDialog(html) : ""}
     `;
     }
 
     _startApDialog(html) {
       const footer = !this.state.apStarted?html`
-        <footer class="px-2 jc-end">
-          <button type="button" class="btn btn-error sm ml-1 md-ml-3" onclick=${this._startAp}>Yes</button>
-          <button type="button" class="btn btn-primary sm ml-1 md-ml-3" onclick=${() => (this.state.startApDlg = false)}>No</button>
+        <footer class="app-modal__actions">
+          <button type="button" class="danger" onclick=${this._startAp}>Start access point</button>
+          <button type="button" class="secondary" onclick=${() => (this.state.startApDlg = false)}>Cancel</button>
         </footer>
         `:html`
           <footer>
-            <div class="alert alert-primary">
+            <div class="notice">
               <p>
               <strong>Access Point mode has been initiated.<br /></strong>
               Please connect to the GATAS Access Point to continue the setup.
@@ -156,14 +153,13 @@ class ActionButtons extends El {
           </footer>
         `;
 
-      return html` <div class="modal blur show">
-      <div class="modal-content mw-400 rounded">
-        <article class="shadow accent-light">
+      return html` <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="access-point-title">
+      <div class="app-modal__surface">
+        <article>
           <header>
-            <h4>Start Access Point</h4>
+            <h4 id="access-point-title">Start access point</h4>
           </header>
-          <div class="overflow-auto accent-primary" style="color: black">
-            <!-- Quick hack to make text black on Safari Desktop -->           
+          <div class="app-modal__body">
             <p>
               If GATAS is currently in client mode, it will exit that mode and start the GATAS Access Point.
             </p>
@@ -182,12 +178,18 @@ class ActionButtons extends El {
 
     render(html) {
         return html`
-      <div style="margin-top: 5px; gap: 1em;align-items: center;justify-content: center;display:flex">
+      <section class="page-section">
+        <header>
+          <h2>Device actions</h2>
+          <p>Maintenance and connectivity controls for this OpenAce device.</p>
+        </header>
+        <div class="action-grid">
           <div>${this._restartButton(html)}</div>
           <div>${this._usbBootButton(html)}</div>
           <div>${this._changeHwButton(html)}</div>
           <div>${this._startApButton(html)}</div>          
-      </div>
+        </div>
+      </section>
     `;
     }
 }

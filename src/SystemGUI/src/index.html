@@ -3,50 +3,15 @@
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
-  <title>GATAS</title>
-
-  <!-- Polyfill :has() for spry-css -->
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      document
-        .querySelectorAll('input[type="checkbox"]')
-        .forEach((checkBox) => {
-          checkBox.addEventListener("click", (event) => {
-            event.target.parentElement.classList.toggle(
-              "has-checked",
-              event.target.checked,
-            );
-          });
-        });
-
-      document.querySelectorAll(".tooltip").forEach((tooltip) => {
-        tooltip.parentElement.classList.add("has-tooltip");
-      });
-    });
-  </script>
-
-  <!--link rel="stylesheet" href="css/spry.min.css" /-->
-  <link rel="stylesheet" href="css/spry.min.css" />
-  <link rel="stylesheet" href="css/custom.css" />
+  <meta name="theme-color" content="#0b2239" />
+  <title>OpenAce</title>
+  <link rel="stylesheet" href="css/app.scss" />
 </head>
 
-<body id="body" class="overflow-x-hidden">
-  <script>
-    if (
-      window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    ) {
-      document.body.classList.add("dark");
-    }
-  </script>
-
-  <div class="row jc-center">
-    <div class="lg-col-8 md-col-10 sm-col-12">
-      <gatas-main> </gatas-main>
-    </div>
-  </div>
+<body id="body">
+  <gatas-main></gatas-main>
 </body>
 
 <script type="module">
@@ -60,13 +25,20 @@
 
   class GaTasMain extends El {
     created() {
-      store.init().then((data) => {
-        // Have to set this with a timeout or else the drop down does not appear on the right aircraft
-        setTimeout(() => {
-          // Default page to open
-          store.state.page = "session";
-        }, 50);
+      this.pages = ["session", "modules", "status", "actions"];
+      this._syncPageFromLocation = () => {
+        const requestedPage = window.location.hash.slice(1);
+        store.state.page = this.pages.includes(requestedPage) ? requestedPage : "session";
+      };
+      this._syncPageFromLocation();
+      window.addEventListener("hashchange", this._syncPageFromLocation);
+      store.init().catch(() => {
+        // The shell and navigation remain available while the device reconnects.
       });
+    }
+
+    unmounted() {
+      window.removeEventListener("hashchange", this._syncPageFromLocation);
     }
 
     render(html) {
@@ -92,10 +64,17 @@
       }
 
       return html`
+        <div class="app-shell">
           <main-menu></main-menu>
-          <div>Your gatasID: <strong>${store.state.gatasId}</strong></div>
-          ${pageContent}
-        `;
+          <main id="main-content" class="app-content">
+            <div class="device-identity">
+              <span>Device ID</span>
+              <strong>${store.state.gatasId || "—"}</strong>
+            </div>
+            ${pageContent}
+          </main>
+        </div>
+      `;
     }
   }
   customElements.define("gatas-main", GaTasMain);

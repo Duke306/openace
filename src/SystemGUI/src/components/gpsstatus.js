@@ -38,7 +38,7 @@ class GpsStatus extends El {
   _row(html, label, value) {
     return html`
       <tr>
-        <th style="width:50%" scope="row">${label}</th>
+        <th scope="row">${label}</th>
         <td>${value}</td>
       </tr>
     `;
@@ -55,8 +55,13 @@ class GpsStatus extends El {
     const heightAboveGps = formatUnit(this.state.data['heightAboveGps:m'], "m");
 
     return html`
-      <div class="section">
-        <table>
+      <section class="page-section">
+        <header>
+          <h2>GPS status</h2>
+          <p>Live position, fix quality, and firmware information.</p>
+        </header>
+        <div class="table-wrap">
+        <table class="data-table status-table">
           <tbody>
             ${this._row(html, "Time (UTC)", this.state.data?.UtcTimeMsg)} 
             ${this._row(html, "Satellites used in fix", this.state.data?.satsUsedForFix)}
@@ -70,7 +75,6 @@ class GpsStatus extends El {
             ${this._row(html, "pDOP", this.state.data?.pDop + " / " + this.state.data?.dopValue)} 
             ${this._row(html, "Ground Station Mode", groundStation)}
             ${this._row(html, "Height Above Ground Station", heightAboveGps)} 
-            ${this._row(html, "pDOP", this.state.data?.pDop + " / " + this.state.data?.dopValue)} 
             ${this._row(html, "Fix Quality", this.state.data?.fixQuality)}
             ${this._row(html, "Fix Type", this.state.data?.gpsFixType)}
             ${this._row(html, "GGA Messages", receivedGGA)}
@@ -78,7 +82,8 @@ class GpsStatus extends El {
             ${this._row(html, "GATAS Version", this.state.data?.GATAS_BUILD_GIT_TAG)}
           </tbody>
         </table>
-      </div>
+        </div>
+      </section>
     `;
   }
 }
