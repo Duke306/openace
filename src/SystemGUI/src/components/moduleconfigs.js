@@ -258,7 +258,7 @@ class WifiServiceConfig extends ModuleConfig {
          <div class="app-grid app-grid--2">
             ${this.clientsIds.map(
       (id) => html`
-                <div class="split-row">
+                <div class="split-row endpoint-row">
                   <div class="split-main">
                     <label for="ssid">
                       SSID ${id}:
@@ -584,10 +584,10 @@ class GDLoverUDPConfig extends ModuleConfig {
                       <input type="text" id="ip_${item}" ref="ip_${item}" onblur="this.parentElement.classList.toggle('active', this.value)" />
                     </label>
                   </div>
-                  <div class="split-aside">
+                  <div class="split-aside endpoint-port">
                     <label class="has-sub ${this._hasValue("ipport_" + item) && "active"}">
                       <sub>Port ${item}</sub>
-                      <input type="text" id="ipport_${item}" ref="ipport_${item}" onblur="this.parentElement.classList.toggle('active', this.value)" />
+                      <input type="text" inputmode="numeric" maxlength="5" size="5" id="ipport_${item}" ref="ipport_${item}" onblur="this.parentElement.classList.toggle('active', this.value)" />
                     </label>
                   </div>
                 </div>
@@ -987,7 +987,7 @@ class GatasConnectUDPConfig extends ModuleConfig {
         <br/><br/>
         To setup GATAS Connect:
         <ul>
-          <li>Enter the the IP address of your GATAS Connect service you <button class="secondary compact-button" type="button" title="Copy to IP field" style="cursor:pointer" onclick=${() => { this.$refs.ip.value = 'gatas.vantwisk.nl'; }}>can use gatas.vantwisk.nl</button> which is free to use:
+          <li>Enter the the IP address of your GATAS Connect service you can use <button class="secondary compact-button" type="button" title="Copy to IP field" style="cursor:pointer" onclick=${() => { this.$refs.ip.value = 'gatas.vantwisk.nl'; }}>gatas.vantwisk.nl</button> which is free to use:
           <li>Then setup your WIFI to connect to your mobile hotspot and ensure to enable 'Client Only' in WifiService.
         </ul>
       </p>
@@ -1006,7 +1006,7 @@ class GatasConnectUDPConfig extends ModuleConfig {
             <div class="split-main">
               <label for="ip">
                 IP Address or domain name of GATAS Server:
-                <input type="text" id="ip" ref="ip" placeholder="gatas.vantwisk.nl" } />
+                <input type="text" id="ip" ref="ip" />
               </label>
             </div>
         </div>
