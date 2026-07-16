@@ -21,34 +21,21 @@ private:
         GATAS::AircraftAddress icao;
         uint32_t lastSeen;
 
-        // Default constructor
-        CacheEntry() = default;
+        CacheEntry() = delete;
 
         CacheEntry(GATAS::AircraftAddress icao_, uint32_t lastSeen_)
             : icao(icao_), lastSeen(lastSeen_) {}
+    };
 
-        CacheEntry(const CacheEntry &other)
-            : icao(other.icao), lastSeen(other.lastSeen) {}
-
-        CacheEntry &operator=(const CacheEntry &other)
-        {
-            icao = other.icao;
-            lastSeen = other.lastSeen;
-            return *this;
-        }
-
-        constexpr bool operator<(const CacheEntry &other) const
-        {
-            return icao < other.icao;
-        }
-
+    struct CacheEntryLess
+    {
         constexpr bool operator()(const CacheEntry &lhs, const CacheEntry &rhs) const
         {
             return lhs.icao < rhs.icao;
         }
     };
 
-    etl::flat_set<CacheEntry, SIZE, CacheEntry> cache;
+    etl::flat_set<CacheEntry, SIZE, CacheEntryLess> cache;
 
 public:
     void clear()

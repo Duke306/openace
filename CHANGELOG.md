@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
--
+- Added MLAT as a recognized aircraft data source with full and compact display names.
 
 ### Changed
 
-- Refresh of the UI
+- Redesigned the SystemGUI with Pico CSS, responsive navigation, consistent forms and dialogs, clearer device status, and improved module monitoring layouts.
+- SystemGUI navigation now follows URL hashes so pages can be linked directly and restored after reload.
+- ADS-B cache value types are now separated from their ETL hash, equality, and ordering policies so invalid default cache entries are not required.
 
 ### Deprecated
 
@@ -25,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
--
+- Initialized GPS satellite-in-view counters, radio identifiers, and AirConnect client state before use.
 
 ### Security
 

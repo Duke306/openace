@@ -60,7 +60,7 @@ void GpsDecoder::getData(etl::string_stream &stream, const etl::string_view path
     stream << ",\"gpsFixType\":\"" << fixType.c_str() << "\"";
     stream << ",\"satsUsedForFix\":" << satsUsedForFix;
     stream << ",\"epoch\":" << CoreUtils::secondsSinceEpoch();
-    stream << ",\"satsInView\":" << satViewStats.bds + satViewStats.gal + satViewStats.glo + satViewStats.gps;
+    stream << ",\"satsInView\":" << (satViewStats.bds + satViewStats.gal + satViewStats.glo + satViewStats.gps);
     stream << ",\"upTime:el\":" << (CoreUtils::timeS32() - statistics.startTime),
         stream << ",\"UtcTimeMsg\":" << "\""
                << width2fill0 << lastGGATimestamp.hours << GATAS::RESET_FORMAT << ":"
