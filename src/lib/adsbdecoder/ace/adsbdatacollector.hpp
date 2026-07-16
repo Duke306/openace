@@ -13,8 +13,6 @@
 
 struct AdsbCombinedDataStatus
 {
-    etl::hash<uint32_t> hasher;
-
     uint32_t icao; // ICAO address
     GATAS::CallSign callSign;
     uint8_t messageStatus; // How complete this message is
@@ -39,7 +37,7 @@ struct AdsbCombinedDataStatus
 
     ~AdsbCombinedDataStatus() = default;
 
-    AdsbCombinedDataStatus() = default;
+    AdsbCombinedDataStatus() = delete;
 
     // Constructor with icao for search functions.
     AdsbCombinedDataStatus(uint32_t icao_)
@@ -59,18 +57,6 @@ struct AdsbCombinedDataStatus
     {
     }
 
-    bool operator<(const AdsbCombinedDataStatus &other) const
-    {
-        return icao < other.icao;
-    }
-    bool operator()(uint32_t lhs, uint32_t rhs) const
-    {
-        return lhs == rhs;
-    }
-    size_t operator()(uint32_t e) const
-    {
-        return hasher(e);
-    }
 };
 
 /**
@@ -95,7 +81,7 @@ class AdsbDataCollector
     static constexpr uint32_t CLEAR_UP_SIZE = (SIZE * 90) / 100;
 
 private:
-    etl::unordered_map<uint32_t, AdsbCombinedDataStatus, SIZE, SIZE, AdsbCombinedDataStatus, AdsbCombinedDataStatus> cache;
+    etl::unordered_map<uint32_t, AdsbCombinedDataStatus, SIZE, SIZE> cache;
 
 
     void decodePCR(bool fflag)

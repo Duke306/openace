@@ -1,83 +1,81 @@
 <!doctype html>
 <html lang="en" xml:lang="en" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#0b2239" />
+    <title>GATAS</title>
+    <link rel="stylesheet" href="css/app.scss" />
+  </head>
 
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#0b2239" />
-  <title>GATAS</title>
-  <link rel="stylesheet" href="css/app.scss" />
-</head>
+  <body id="body">
+    <gatas-main></gatas-main>
+  </body>
 
-<body id="body">
-  <gatas-main></gatas-main>
-</body>
+  <script type="module">
+    import { El } from "@frameable/el";
+    import store from "./components/store";
+    import "./components/menu";
+    import "./components/session";
+    import "./components/modules";
+    import "./components/gpsstatus";
+    import "./components/actionbuttons";
 
-<script type="module">
-  import { El } from "@frameable/el";
-  import store from "./components/store";
-  import "./components/menu";
-  import "./components/session";
-  import "./components/modules";
-  import "./components/gpsstatus";
-  import "./components/actionbuttons";
-
-  class GaTasMain extends El {
-    created() {
-      this.pages = ["session", "modules", "status", "actions"];
-      this._syncPageFromLocation = () => {
-        const requestedPage = window.location.hash.slice(1);
-        store.state.page = this.pages.includes(requestedPage) ? requestedPage : "session";
-      };
-      this._syncPageFromLocation();
-      window.addEventListener("hashchange", this._syncPageFromLocation);
-      store.init().catch(() => {
-        // The shell and navigation remain available while the device reconnects.
-      });
-    }
-
-    unmounted() {
-      window.removeEventListener("hashchange", this._syncPageFromLocation);
-    }
-
-    render(html) {
-      let pageContent;
-      switch (store.state.page) {
-        case "session":
-          pageContent = html`<gatas-session key="session"></gatas-session>`;
-          break;
-        case "actions":
-          pageContent = html`<action-buttons key="actions"></action-buttons>`;
-          break;
-        case "modules":
-          pageContent = html`<gatas-modules key="modules"></gatas-modules>`;
-          break;
-        case "status":
-          pageContent = html`<gps-status key="gpsstatus"></gps-status>`;
-          break;
-        case "config":
-          pageContent = html`<gatas-config key="config"></gatas-config>`;
-          break;
-        default:
-          pageContent = "";
+    class GaTasMain extends El {
+      created() {
+        this.pages = ["session", "modules", "status", "actions"];
+        this._syncPageFromLocation = () => {
+          const requestedPage = window.location.hash.slice(1).split("/")[0];
+          store.state.page = this.pages.includes(requestedPage) ? requestedPage : "session";
+        };
+        this._syncPageFromLocation();
+        window.addEventListener("hashchange", this._syncPageFromLocation);
+        store.init().catch(() => {
+          // The shell and navigation remain available while the device reconnects.
+        });
       }
 
-      return html`
-        <div class="app-shell">
-          <main-menu></main-menu>
-          <main id="main-content" class="app-content">
-            <div class="device-identity">
-              <span>Device ID</span>
-              <strong>${store.state.gatasId || "—"}</strong>
-            </div>
-            ${pageContent}
-          </main>
-        </div>
-      `;
-    }
-  }
-  customElements.define("gatas-main", GaTasMain);
-</script>
+      unmounted() {
+        window.removeEventListener("hashchange", this._syncPageFromLocation);
+      }
 
+      render(html) {
+        let pageContent;
+        switch (store.state.page) {
+          case "session":
+            pageContent = html`<gatas-session key="session"></gatas-session>`;
+            break;
+          case "actions":
+            pageContent = html`<action-buttons key="actions"></action-buttons>`;
+            break;
+          case "modules":
+            pageContent = html`<gatas-modules key="modules"></gatas-modules>`;
+            break;
+          case "status":
+            pageContent = html`<gps-status key="gpsstatus"></gps-status>`;
+            break;
+          case "config":
+            pageContent = html`<gatas-config key="config"></gatas-config>`;
+            break;
+          default:
+            pageContent = "";
+        }
+
+        return html`
+          <div class="app-shell">
+            <main-menu></main-menu>
+            <main id="main-content" class="app-content">
+              <div class="device-identity">
+                <span>Device ID</span>
+                <strong>${store.state.gatasId || "—"}</strong>
+              </div>
+              ${pageContent}
+            </main>
+          </div>
+        `;
+      }
+    }
+    customElements.define("gatas-main", GaTasMain);
+  </script>
 </html>

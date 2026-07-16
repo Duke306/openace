@@ -629,7 +629,7 @@ TEST_CASE("Data source prefix preserves fixed callsign length", "[single-file]")
     public:
         void onNext(const GATAS::AircraftPositionInfo &position)
         {
-            REQUIRE(position.callSign == "FLPH-ABCDEFG");
+            REQUIRE(position.callSign == "flPH-ABCDEFG");
         }
     } handler;
 
@@ -653,7 +653,7 @@ TEST_CASE("Data source prefix does create callsigns for empty values", "[single-
     public:
         void onNext(const GATAS::AircraftPositionInfo &position)
         {
-            REQUIRE(position.callSign == "AB");
+            REQUIRE(position.callSign == "ab");
         }
     } handler;
 
@@ -683,7 +683,7 @@ TEST_CASE("Squawk display replaces callsign when squawk is known", "[single-file
 
         void onNext(const GATAS::AircraftPositionInfo &position)
         {
-            REQUIRE(position.callSign == "AB0042");
+            REQUIRE(position.callSign == "ab0042");
             callCount += 1;
         }
     } handler;

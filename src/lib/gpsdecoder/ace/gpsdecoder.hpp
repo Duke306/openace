@@ -49,10 +49,10 @@ class GpsDecoder : public BaseModule, public etl::message_router<GpsDecoder, GAT
     // 6: INS Dead reckoning
     struct SatViewStats
     {
-        uint8_t gps;
-        uint8_t glo;
-        uint8_t gal;
-        uint8_t bds;
+        uint8_t gps=0;
+        uint8_t glo=0;
+        uint8_t gal=0;
+        uint8_t bds=0;
     } satViewStats;
 
     uint8_t satsUsedForFix;

@@ -209,6 +209,7 @@ namespace GATAS
         _RADIO = 5, // ANything beflore Radio can only be received over hardware
         _TRANSPROTOCOLS = 5, // Indicate maximum RADIO that can be received over low power (868MHZ etc..) used to limit array sizes
         ADSB = 5,
+        MLAT = 6,
         ADSLFLARM = 253,     // Combination of ADSL/FLARM, not an acutal protocol but needed for RX of multiple protocols
         ADSLOGN = 254,       // Combination of ADSL/OGN, not an acutal protocol but needed for RX of multiple protocols
         NONE = 255           // Note: Never use this! Unly used for stringToEnum(..)
@@ -511,7 +512,7 @@ namespace GATAS
                                   uint8_t codingRate_)
             : config(config_), frequency(frequency_), hopFrequency(hopFrequency_), id(id_), codingRate(codingRate_) {}
 
-        RadioParameters() : config(nullptr), frequency(nullptr), hopFrequency(0), codingRate(8) {}
+        RadioParameters() : config(nullptr), frequency(nullptr), hopFrequency(0), id(0), codingRate(8) {}
     };
 
     /**

@@ -47,7 +47,6 @@ private:
         TrackerEntry(uint32_t time, const GATAS::AircraftPositionInfo &pos)
             : sendTime(time), position(pos) {}
 
-        TrackerEntry() = default;
     };
 
     struct ByDistance
