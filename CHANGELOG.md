@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added MLAT as a recognized aircraft data source with full and compact display names.
+- Added a combined UDP and Bluetooth output mode for GATAS Connect.
 
 ### Changed
 

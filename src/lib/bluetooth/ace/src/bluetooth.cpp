@@ -187,7 +187,7 @@ void Bluetooth::on_receive(const GATAS::DataPortMsg &msg)
 
 void Bluetooth::on_receive(const GATAS::GatasConnectTx &msg)
 {
-    if ((msg.output != GATAS::GatasConnectOutput::Bluetooth && msg.output != GATAS::GatasConnectOutput::Broadcast))
+    if (!msg.output.usesBluetooth())
     {
         return;
     }
