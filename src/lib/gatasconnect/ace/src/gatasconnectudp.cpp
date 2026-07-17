@@ -103,9 +103,7 @@ bool GatasConnectUDP::resolveIP()
 
 void GatasConnectUDP::on_receive(const GATAS::GatasConnectTx &msg)
 {
-    // Note: Not passing broadcast messages here to reduce traffic over mobile connection
-    //       this was a choice, not a bug
-    if (msg.output != GATAS::GatasConnectOutput::UDP)
+    if (!msg.output.usesUDP())
     {
         return;
     }

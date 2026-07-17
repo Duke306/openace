@@ -921,6 +921,7 @@ class GatasConnectConfig extends ModuleConfig {
                 <select id="output" ref="output">
                   <option value="udp" ref="output_udp">UDP</option>
                   <option value="bluetooth" ref="output_bluetooth">Bluetooth</option>
+                  <option value="udp_bluetooth" ref="output_udp_bluetooth">UDP + Bluetooth</option>
                 </select>
               </label>
             </div>

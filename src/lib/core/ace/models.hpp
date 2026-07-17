@@ -255,7 +255,7 @@ namespace GATAS
         }
     };
 
-    
+
 
     namespace Config
     {
@@ -608,14 +608,32 @@ namespace GATAS
         {
             UDP = 0,
             Bluetooth = 1,
-            Broadcast = 2
+            UDPAndBluetooth = 2,
+            NOOP = 255,
         };
 
         ETL_DECLARE_ENUM_TYPE(GatasConnectOutput, uint8_t)
         ETL_ENUM_TYPE(UDP, "UDP")
         ETL_ENUM_TYPE(Bluetooth, "BlueTooth")
-        ETL_ENUM_TYPE(Broadcast, "Broadcast")
+        ETL_ENUM_TYPE(UDPAndBluetooth, "UDP + BlueTooth")
+        ETL_ENUM_TYPE(NOOP, "Noop")
         ETL_END_ENUM_TYPE
+
+    public:
+        bool usesUDP() const
+        {
+            return value == UDP || value == UDPAndBluetooth;
+        }
+
+        bool usesBluetooth() const
+        {
+            return value == Bluetooth || value == UDPAndBluetooth;
+        }
+
+        GatasConnectOutput withBluetooth() const
+        {
+            return value == UDP ? GatasConnectOutput(UDPAndBluetooth) : *this;
+        }
     };
 
 };
