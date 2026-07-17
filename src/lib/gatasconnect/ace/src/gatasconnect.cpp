@@ -132,20 +132,8 @@ void GatasConnect::getConfig(const Configuration &config)
     pinCode = (pinCode == 0) ? 0 : etl::clamp(pinCode, static_cast<uint32_t>(1000), static_cast<uint32_t>(999999));
     gdl90BridgeEnabled = config.valueByPath(false, NAME, "enableGdl90Bridge");
 
-    GATAS::GatasConnectOutput configuredOutput = GATAS::GatasConnectOutput::UDP;
-    auto outputValue = config.strValueByPath("udp", NAME, "output");
-    if (outputValue == "bluetooth")
-    {
-        configuredOutput = GATAS::GatasConnectOutput::Bluetooth;
-    }
-    else if (outputValue == "udp_bluetooth")
-    {
-        configuredOutput = GATAS::GatasConnectOutput::UDPAndBluetooth;
-    }
-
     auto gatasConfig = config.gaTasConfig();
     auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()};
-    gatasConnectOutput = configuredOutput;
     hasUdpTraffic = false;
     localConfigurationUpdateCnt = LOCALCONFIGURATIONCHANGE_HOLD_BACK;
     icaoAddress = gatasConfig.conspicuity.icaoAddress;

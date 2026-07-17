@@ -841,8 +841,6 @@ class GatasConnectConfig extends ModuleConfig {
   }
   mounted() {
     const validator = new JustValidate(this.$refs.form);
-    this.$refs.output.addEventListener("change", this._toggleGdl90BridgeVisibility.bind(this));
-    this._toggleGdl90BridgeVisibility();
 
     validator
       .addField(this.$refs.pinCode, [
@@ -856,32 +854,23 @@ class GatasConnectConfig extends ModuleConfig {
         }
       ])
       .onSuccess((event) => {
-        const data = this._getFormData();
-        store.updateModuleData("GatasConnect", { ...this.copyOfData, ...data }).then(() => {
+        const data = { ...this.copyOfData, ...this._getFormData() };
+        delete data.output;
+        store.updateModuleData("GatasConnect", data).then(() => {
           this.close();
         });
       });
   }
 
-  _toggleGdl90BridgeVisibility() {
-    const output = this.$refs.output.value;
-    this.$refs.enableGdl90BridgeGroup.style.display = output === "udp" ? "none" : "";
-    this.$refs.udpBluetoothNotice.style.display = output === "udp_bluetooth" ? "" : "none";
-  }
-
   _setFormData(data) {
     //    this.$refs.pinCode.value = data.pinCode !== undefined ? data.pinCode : this.randomIntFromInterval(1000, 999999);
     this.$refs.pinCode.value = data.pinCode !== undefined ? data.pinCode : "0";
-    this.$refs.output.value = data.output !== undefined ? data.output : "udp";
-    this.$refs[`output_${data.output?.toLowerCase()}`].selected = true;
     this.$refs.enableGdl90Bridge.checked = data.enableGdl90Bridge === true;
-    this._toggleGdl90BridgeVisibility();
   }
 
   _getFormData() {
     return {
       pinCode: this.$refs.pinCode.value.trim(),
-      output: this.$refs.output.value,
       enableGdl90Bridge: this.$refs.enableGdl90Bridge.checked,
     };
   }
@@ -917,27 +906,12 @@ class GatasConnectConfig extends ModuleConfig {
                 <input type="text" id="pinCode" ref="pinCode" placeholder="0" } />
               </label>
             </div>
-            <div class="split-main" style="margin-top:20px;">
-              <label for="output">
-                Output:
-                <select id="output" ref="output">
-                  <option value="udp" ref="output_udp">UDP</option>
-                  <option value="bluetooth" ref="output_bluetooth">Bluetooth</option>
-                  <option value="udp_bluetooth" ref="output_udp_bluetooth">UDP + Bluetooth</option>
-                </select>
-              </label>
-            </div>
             <div class="split-main" style="margin-top:20px;" ref="enableGdl90BridgeGroup">
               <label for="enableGdl90Bridge">
                 Enable Gdl90 Bridge:
                 <input type="checkbox" id="enableGdl90Bridge" ref="enableGdl90Bridge" />
               </label>
             </div>
-        </div>
-
-        <div class="notice notice--warning" ref="udpBluetoothNotice">
-          When UDP + Bluetooth is selected, direct UDP traffic is preferred while that connection is active. Traffic through Bluetooth via GATAS Companion is
-          used as a fallback when UDP traffic becomes unavailable.
         </div>
 
         ${this.buttonArray(html)}
