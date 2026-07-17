@@ -34,7 +34,7 @@ class GatasConnect : public BaseModule, public etl::message_router<GatasConnect,
     uint64_t lastRadioTrafficUs = 0;
     uint8_t localConfigurationUpdateCnt = 0;
     TimerHandle_t requestTimer = nullptr;
-    GATAS::GatasConnectOutput gatasConnectOutput = GATAS::GatasConnectOutput::NOOP;
+    const GATAS::GatasConnectOutput gatasConnectOutput = GATAS::GatasConnectOutput::UDPAndBluetooth;
     uint32_t lastUdpTrafficUs = 0;
     bool hasUdpTraffic = false;
     // GDL90 over BlueTooth. Needs gatas companion
