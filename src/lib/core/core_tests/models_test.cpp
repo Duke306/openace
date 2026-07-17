@@ -33,4 +33,9 @@ TEST_CASE("GATAS Connect output modes select their transports", "[models]")
     REQUIRE(udp.withBluetooth() == combined);
     REQUIRE(bluetooth.withBluetooth() == bluetooth);
     REQUIRE(combined.withBluetooth() == combined);
+
+    REQUIRE(combined.preferUDP(true) == udp);
+    REQUIRE(combined.preferUDP(false) == combined);
+    REQUIRE(bluetooth.preferUDP(true) == bluetooth);
+    REQUIRE(udp.preferUDP(true) == udp);
 }

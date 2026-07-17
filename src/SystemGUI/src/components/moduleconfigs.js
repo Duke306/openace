@@ -864,7 +864,9 @@ class GatasConnectConfig extends ModuleConfig {
   }
 
   _toggleGdl90BridgeVisibility() {
-    this.$refs.enableGdl90BridgeGroup.style.display = this.$refs.output.value === "udp" ? "none" : "";
+    const output = this.$refs.output.value;
+    this.$refs.enableGdl90BridgeGroup.style.display = output === "udp" ? "none" : "";
+    this.$refs.udpBluetoothNotice.style.display = output === "udp_bluetooth" ? "" : "none";
   }
 
   _setFormData(data) {
@@ -931,6 +933,11 @@ class GatasConnectConfig extends ModuleConfig {
                 <input type="checkbox" id="enableGdl90Bridge" ref="enableGdl90Bridge" />
               </label>
             </div>
+        </div>
+
+        <div class="notice notice--warning" ref="udpBluetoothNotice">
+          When UDP + Bluetooth is selected, direct UDP traffic is preferred while that connection is active. Traffic through Bluetooth via GATAS Companion is
+          used as a fallback when UDP traffic becomes unavailable.
         </div>
 
         ${this.buttonArray(html)}

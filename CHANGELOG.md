@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Redesigned the SystemGUI with Pico CSS, responsive navigation, consistent forms and dialogs, clearer device status, and improved module monitoring layouts.
 - SystemGUI navigation now follows URL hashes so pages can be linked directly and restored after reload.
 - ADS-B cache value types are now separated from their ETL hash, equality, and ordering policies so invalid default cache entries are not required.
+- Combined GATAS Connect output now prefers UDP traffic while UDP responses are active and automatically restores Bluetooth requests when UDP becomes silent.
 
 ### Deprecated
 
