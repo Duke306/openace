@@ -31,6 +31,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
+## [v3.1.0] - 2026-07-13
+
+### Added
+
+- Experimental aircraft path prediction in `AircraftTracker`, using recent position, speed, heading, vertical speed, and turn-rate history to extrapolate short gaps in tracked traffic.
+- Desktop test coverage for aircraft path prediction and updated antenna-radiation bearing behavior.
+- Squawk code tracking on `AircraftPositionInfo`, including ADS-B squawk capture and an `AircraftTracker` option to show known squawk codes instead of callsigns.
+
+### Changed
+
+- Added an `AircraftTracker` configuration and web UI option to enable or disable path prediction.
+- `AircraftTracker` now keeps lightweight predictor state for nearby traffic and can forward extrapolated positions during scheduled client updates.
+- Normalized several tracker/core numeric types and math helpers, including 32-bit ellipsoid heights and float-specific angle/CPR calculations.
+- `AIRCRAFT_POSITION_TYPE_V2` binary messages now include a signed 16-bit squawk field after aircraft category; `-1` means unknown.
+
+### Deprecated
+
+-
+
+### Removed
+
+-
+
+### Fixed
+
+- Fixed antenna radiation pattern bearing calculation so radial placement is based on ownship track and target position, not the target aircraft track.
+- Fixed protocol/config bounds handling for tracked-aircraft distance and transmitted altitude values in FLARM, FANET, and OGN paths.
+- OGN, FLARM, and binary V2 aircraft positions with unavailable or out-of-window minute-relative timestamps are now logged and discarded instead of being treated as current.
+- `AircraftTracker` now rejects out-of-order position updates before they can replace newer coordinates or desynchronize predictor history.
+- Restored timer-driven `AircraftTracker` scheduling so continuous position notifications cannot suppress heartbeat and predicted-position output.
+- Added timer-driven SX1262 TX timeout recovery so a missing `DIO1_TX_DONE` interrupt cannot leave the radio stuck waiting for another task notification.
+- Aircraft already tracked are now removed immediately when a current position places them outside the adaptive tracking radius.
+- Aircraft path prediction now prefers protocol-provided horizontal turn rates, with heading-history derivation retained as a fallback.
+
+### Security
+
+-
+
 ## [v3.0.1] - 2026-06-13
 
 ### Added

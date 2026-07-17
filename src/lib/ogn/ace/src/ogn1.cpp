@@ -3,6 +3,7 @@
 #include "../ogn1.hpp"
 #include "../ognpacket.hpp"
 #include "ace/bitutils.hpp"
+#include "ace/debug.hpp"
 #include "ace/spinlockguard.hpp"
 #include "etl/algorithm.h"
 
@@ -125,7 +126,6 @@ uint8_t Ogn1::addressTypeToOgn(GATAS::AddressType addressType) const
 
 int8_t Ogn1::parseFrame(OGN_Packet &packet, uint32_t frequency, int16_t rssiDbm)
 {
-    uint32_t timeUs32 = CoreUtils::timeUs32();
     if (packet.Header.NonPos)
     {
         statistics.nonPositional += 1;
@@ -157,9 +157,17 @@ int8_t Ogn1::parseFrame(OGN_Packet &packet, uint32_t frequency, int16_t rssiDbm)
     int16_t speed0d1ms = packet.DecodeSpeed();
     auto aircrftCat = ognToGatas(static_cast<Ogn1::OGNAircraftType>(packet.Position.AcftType));
     auto groundSpeed = speed0d1ms * .1f;
+    const uint16_t msInMinute = static_cast<uint16_t>(packet.Position.Time * 1'000U);
+    auto timeUs32 = CoreUtils::timeUs32FromMsInMinute(msInMinute);
+    if (!timeUs32.has_value())
+    {
+        GATAS_WARN("Ignoring OGN position with invalid timestamp: msInMinute=%u",
+                   static_cast<unsigned int>(msInMinute));
+        return -1;
+    }
     GATAS::IngressAircraftPositionMsg aircraftPosition{
         GATAS::AircraftPositionInfo{
-            timeUs32,
+            timeUs32.value(),
             "",
             packet.Header.Address,
             addressTypeFromOgn(packet.Header.AddrType),
@@ -175,9 +183,7 @@ int8_t Ogn1::parseFrame(OGN_Packet &packet, uint32_t frequency, int16_t rssiDbm)
             groundSpeed,
             static_cast<int16_t>(packet.DecodeHeading() * .1f),
             packet.DecodeTurnRate() * .1f,
-            fromOwn.distance,
-            fromOwn.relNorth,
-            fromOwn.relEast},
+            fromOwn.distance},
         rssiDbm};
     getBus().receive(aircraftPosition);
     return 0;
@@ -209,7 +215,7 @@ void Ogn1::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
         packet.EncodeHeading(ownship.track * 10.f);
         packet.EncodeClimbRate(ownship.verticalSpeed * 10.f);
         packet.EncodeTurnRate(ownship.hTurnRate * 10.f);
-        packet.EncodeAltitude(ownship.heightMsl());
+        packet.EncodeAltitude(etl::clamp(ownship.heightMsl(), static_cast<int32_t>(0),  static_cast<int32_t>(61432)));
         packet.EncodeDOP(gpsStats.pDop + 0.5f);
 
         // TODO: Understand how baro Altitude really works in OGN

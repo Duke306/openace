@@ -23,6 +23,7 @@ struct AdsbCombinedDataStatus
     // Data from ADSB
     uint16_t velocity;          // Non decoded Ground speed in knots
     uint8_t category;           // category
+    int16_t squawk;             // Mode A squawk, -1 when unknown
     int16_t heading;            // Heading in degrees
     int32_t ellipseHeight;        // Altitude in meter
     int32_t raw_even_latitude;  // Non decoded latitude  even
@@ -43,7 +44,7 @@ struct AdsbCombinedDataStatus
     // Constructor with icao for search functions.
     AdsbCombinedDataStatus(uint32_t icao_)
         : icao(icao_), callSign(""), messageStatus(0), lastSeen(0),
-          velocity(0.0f), category(0), heading(0), ellipseHeight(0), raw_even_latitude(0),
+          velocity(0.0f), category(0), squawk(-1), heading(0), ellipseHeight(0), raw_even_latitude(0),
           raw_even_longitude(0), raw_odd_latitude(0), raw_odd_longitude(0), baro_gnss_diff(0),
           lat(0.0f), lon(0.0f), vert_rate(0.0f), airborne(false), evict(false)
     {
@@ -52,7 +53,7 @@ struct AdsbCombinedDataStatus
     // Constructor with icao and lastSeen parameters
     AdsbCombinedDataStatus(uint32_t icao_, uint32_t lastSeen_)
         : icao(icao_), callSign(""), messageStatus(0), lastSeen(lastSeen_),
-          velocity(0.0f), category(0), heading(0), ellipseHeight(0), raw_even_latitude(0),
+          velocity(0.0f), category(0), squawk(-1), heading(0), ellipseHeight(0), raw_even_latitude(0),
           raw_even_longitude(0), raw_odd_latitude(0), raw_odd_longitude(0), baro_gnss_diff(0),
           lat(0.0f), lon(0.0f), vert_rate(0.0f), airborne(false), evict(false)
     {
@@ -87,6 +88,7 @@ class AdsbDataCollector
     static constexpr uint8_t HAS_VELOCITY = 1 << 3;
     static constexpr uint8_t HAS_ALTITUDE = 1 << 4; //
     static constexpr uint8_t HAS_POSITION_UPDATED = 1 << 5;
+    static constexpr uint8_t NOT_HAS_POSITION_UPDATED = static_cast<uint8_t>(~HAS_POSITION_UPDATED);
     static constexpr uint8_t CHECK_HAS_CALLSIGN = 1 << 6;
     static constexpr uint8_t VALID_MASK = HAS_POSITION_ODD | HAS_POSITION_EVEN | HAS_HEADING | HAS_VELOCITY | HAS_ALTITUDE | HAS_POSITION_UPDATED;
 
@@ -150,7 +152,7 @@ public:
             for (auto it = cache.cbegin(); it != cache.cend();)
             {
                 if (it->second.evict || (-CoreUtils::usToReferenceRaw(it->second.lastSeen, usTime) > evictTime))
-                {                    
+                {
                     // printf("Evict: icao:%06X lastSee:%ld usTime:%ld, diff:%ld\n", it->second.icao, it->second.lastSeen, usTime, CoreUtils::usFromReference(it->second.lastSeen, usTime));
               //      printf(".");
                     it = cache.erase(it);
@@ -209,6 +211,11 @@ public:
         }
     }
 
+    void updateSquawk(uint16_t squawk)
+    {
+        currentDataStatus->squawk = static_cast<int16_t>(squawk);
+    }
+
     void updateRawOdd(uint32_t raw_latitude, uint32_t raw_longitude)
     {
         currentDataStatus->messageStatus |= HAS_POSITION_ODD;
@@ -249,7 +256,7 @@ public:
     {
         if ((currentDataStatus->messageStatus & VALID_MASK) == VALID_MASK)
         {
-            currentDataStatus->messageStatus &= ~HAS_POSITION_UPDATED;
+            currentDataStatus->messageStatus &= NOT_HAS_POSITION_UPDATED;
             return true;
         }
 

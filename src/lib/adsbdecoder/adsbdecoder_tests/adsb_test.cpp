@@ -54,8 +54,8 @@ auto ownship = GATAS::OwnshipPositionInfo{
     50,   // in m/s
     0,    // 0..359
     0,    // deg/s Turn rate in the horizontal plane
-    50,   // North velocity in m/s
-    0,    // East velocity in m/s
+    // 50,   // North velocity in m/s
+    // 0,    // East velocity in m/s
     20,    // Height of geoid above WGS84 ellipsoid
     true,
     {
@@ -184,7 +184,6 @@ TEST_CASE("Test heading and direction received aircraft", "[single-file]")
     ownship.lat = 52.1;
     ownship.lon = 4.8;
     ownship.ellipseHeight = 10000;
-//    bus.receive(GATAS::OwnshipPositionMsg{ownship}); // TODO: Find out why this does not work
     adsbDecoder.on_receive(GATAS::OwnshipPositionMsg{ownship});
 
     uint8_t data[14];
@@ -209,8 +208,8 @@ TEST_CASE("Test heading and direction received aircraft", "[single-file]")
     REQUIRE(test.position.verticalSpeed == Catch::Approx(4.552).margin(0.001));
 
     REQUIRE(test.position.distanceFromOwn == Catch::Approx(32551).margin(1));
-    REQUIRE(test.position.relNorthFromOwn == Catch::Approx(32099).margin(1));
-    REQUIRE(test.position.relEastFromOwn == Catch::Approx(-5402).margin(1));
+    REQUIRE(test.position.relNorthFromOwn(ownship) == Catch::Approx(32099).margin(1));
+    REQUIRE(test.position.relEastFromOwn(ownship) == Catch::Approx(-5402).margin(1));
     // REQUIRE(test.position.bearingFromOwn == Catch::Approx(351).margin(0.5));
 }
 
