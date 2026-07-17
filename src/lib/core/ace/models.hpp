@@ -602,6 +602,10 @@ namespace GATAS
         uint32_t usSinceBoot; // Time since boot
     };
 
+    /**
+     * Transport destination for an outgoing GATAS Connect message.
+     * A message may target UDP, Bluetooth, both transports, or neither.
+     */
     struct GatasConnectOutput
     {
         enum enum_type : uint8_t
@@ -620,20 +624,41 @@ namespace GATAS
         ETL_END_ENUM_TYPE
 
     public:
+        /** Return true when the message should be delivered by the UDP transport. */
         bool usesUDP() const
         {
             return value == UDP || value == UDPAndBluetooth;
         }
 
+        /** Return true when the message should be delivered by the Bluetooth transport. */
         bool usesBluetooth() const
         {
             return value == Bluetooth || value == UDPAndBluetooth;
         }
 
+        /**
+         * Add Bluetooth to the destination without removing UDP.
+         * Configuration announcements use this so Companion can discover the device.
+         */
         GatasConnectOutput withBluetooth() const
         {
             return value == UDP ? GatasConnectOutput(UDPAndBluetooth) : *this;
         }
+
+        /**
+         * Prefer UDP for traffic requests when recent UDP traffic proves that path is active.
+         * Only the combined destination is reduced; UDP-only and Bluetooth-only remain unchanged.
+         */
+        GatasConnectOutput preferUDP(bool udpTrafficActive) const
+        {
+            return value == UDPAndBluetooth && udpTrafficActive ? GatasConnectOutput(UDP) : *this;
+        }
+    };
+
+    enum class GatasConnectTransport : uint8_t
+    {
+        UDP,
+        Bluetooth,
     };
 
 };

@@ -75,6 +75,15 @@ void GatasConnect::on_receive(const GATAS::IngressAircraftPositionMsg &msg)
 
 void GatasConnect::on_receive(const GATAS::GatasConnectRx &msg)
 {
+    if (msg.source == GATAS::GatasConnectTransport::UDP)
+    {
+        if (auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()})
+        {
+            lastUdpTrafficUs = CoreUtils::timeUs32();
+            hasUdpTraffic = true;
+        }
+    }
+
     if (localConfigurationUpdateCnt)
     {
         localConfigurationUpdateCnt -= 1;
@@ -123,22 +132,21 @@ void GatasConnect::getConfig(const Configuration &config)
     pinCode = (pinCode == 0) ? 0 : etl::clamp(pinCode, static_cast<uint32_t>(1000), static_cast<uint32_t>(999999));
     gdl90BridgeEnabled = config.valueByPath(false, NAME, "enableGdl90Bridge");
 
+    GATAS::GatasConnectOutput configuredOutput = GATAS::GatasConnectOutput::UDP;
     auto outputValue = config.strValueByPath("udp", NAME, "output");
     if (outputValue == "bluetooth")
     {
-        gatasConnectOutput = GATAS::GatasConnectOutput::Bluetooth;
+        configuredOutput = GATAS::GatasConnectOutput::Bluetooth;
     }
     else if (outputValue == "udp_bluetooth")
     {
-        gatasConnectOutput = GATAS::GatasConnectOutput::UDPAndBluetooth;
-    }
-    else
-    {
-        gatasConnectOutput = GATAS::GatasConnectOutput::UDP;
+        configuredOutput = GATAS::GatasConnectOutput::UDPAndBluetooth;
     }
 
     auto gatasConfig = config.gaTasConfig();
     auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()};
+    gatasConnectOutput = configuredOutput;
+    hasUdpTraffic = false;
     localConfigurationUpdateCnt = LOCALCONFIGURATIONCHANGE_HOLD_BACK;
     icaoAddress = gatasConfig.conspicuity.icaoAddress;
     allIcaoAddresses = gatasConfig.allIcaoAddresses;
@@ -171,7 +179,11 @@ void GatasConnect::sendOwnshipPosition()
         hasGpsFixSnap = hasGpsFix;
         lastRadioTrafficUsSnap = lastRadioTrafficUs;
         ownshipSnap = ownshipPosition;
-        outputSnap = gatasConnectOutput;
+        const uint32_t nowUs = CoreUtils::timeUs32();
+        // In UDP + Bluetooth mode, prefer UDP while it is receiving traffic;
+        // otherwise keep both transports active so Bluetooth provides fallback.
+        const bool udpTrafficActive = hasUdpTraffic && (nowUs - lastUdpTrafficUs) < UDP_TRAFFIC_TIMEOUT_US;
+        outputSnap = gatasConnectOutput.preferUDP(udpTrafficActive);
     }
 
     if (outputSnap == GATAS::GatasConnectOutput::NOOP)

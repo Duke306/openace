@@ -198,5 +198,5 @@ void GatasConnectUDP::receiveUdpMessage(void *arg, struct udp_pcb *pcb,
     taskCtx->statistics.bytesReceived += pbuf->tot_len;
     taskCtx->statistics.pkgReceived += 1;
     taskCtx->statistics.hasConnection = true;
-    taskCtx->getBus().receive(GATAS::GatasConnectRx(BaseModule::getGlobalPool(), copy, pbuf->tot_len));
+    taskCtx->getBus().receive(GATAS::GatasConnectRx(BaseModule::getGlobalPool(), GATAS::GatasConnectTransport::UDP, copy, pbuf->tot_len));
 }
