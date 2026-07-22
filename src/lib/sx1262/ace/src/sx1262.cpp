@@ -97,6 +97,7 @@ void Sx1262::enterDisabledState(uint8_t radioNo, const Configuration &config)
 void Sx1262::getData(etl::string_stream &stream, const etl::string_view path) const
 {
     (void)path;
+    int8_t powerdBm = LOW_POWER_MODE ? LOW_POWER_DBM : etl::min(static_cast<int8_t>(22), lastRadioParameters.frequency->powerdBm);
     stream << "{";
     stream << "\"deviceErrors\":" << statistics.deviceErrors;
     stream << ",\"spiNo\":" << spiHall->spiNum();
@@ -105,10 +106,10 @@ void Sx1262::getData(etl::string_stream &stream, const etl::string_view path) co
     stream << ",\"buzyWaitsTimeout:err\":" << statistics.buzyWaitsTimeout;
     stream << ",\"txQueueFull:err\":" << statistics.queueFull;
     stream << ",\"txQueueSize:k\":" << txQueue.size();
-    stream << ",\"mode\":" << "\"" << GATAS::modulationToString(rxRadioParameters.frequency->mode) << "\"";
-    stream << ",\"dataSource\":" << "\"" << GATAS::toString(rxRadioParameters.config->dataSource()) << "\"";
-    stream << ",\"frequency:hz\":" << rxRadioParameters.hopFrequency;
-    stream << ",\"powerdBm:dbm\":" << rxRadioParameters.frequency->powerdBm;
+    stream << ",\"mode\":" << "\"" << GATAS::modulationToString(lastRadioParameters.frequency->mode) << "\"";
+    stream << ",\"dataSource\":" << "\"" << GATAS::toString(lastRadioParameters.config->dataSource()) << "\"";
+    stream << ",\"frequency:hz\":" << lastRadioParameters.hopFrequency;
+    stream << ",\"powerdBm:dbm\":" << powerdBm;
     stream << ",\"radio\":" << radioNo;
     stream << ",\"txEnabled:b\":" << txEnabled;
     stream << ",\"hasGpsFix:b\":" << hasGpsFix;
@@ -212,7 +213,7 @@ void Sx1262::radioInit()
     // sx126x_set_cad_params(this, &DEFAULT_CAD_PARAMS);
 
     sx126x_set_pa_cfg(this, &DEFAULT_HIGH_POWER_PA_CFG);
-    sx126x_set_ocp_value(this, (uint8_t)(120.0f / 2.5f));
+    sx126x_set_ocp_value(this, SX126X_OCP_PARAM_VALUE_140_MA);
 
     // Add RX gain register to retention
     const uint16_t reg = 0x08AC;
@@ -224,6 +225,9 @@ void Sx1262::radioInit()
 
 void Sx1262::configureSx1262(const GATAS::RadioParameters &newParameters, uint8_t payloadLength)
 {
+    GATAS_ASSERT(newParameters.config != nullptr && newParameters.frequency != nullptr, "Invalid radio parameters");
+    GATAS_ASSERT(newParameters.config->dataSource() != GATAS::DataSource::NONE, "Cannot configure radio for NONE");
+
     if (newParameters.config->pcId != currentConfiguredPcId)
     {
         // Table 13-38: PacketType Definition must be in RC mode to switch packert type
@@ -376,6 +380,7 @@ void Sx1262::configureSx1262(const GATAS::RadioParameters &newParameters, uint8_
 
     // GATAS_INFO("Radio %d changed frequency from %ld to %ld", radioNo, lastParameters.hopFrequency, newParameters.hopFrequency);
     checkAndClearDeviceErrors();
+    lastRadioParameters = newParameters;
 }
 
 void Sx1262::listen()
@@ -441,7 +446,7 @@ void Sx1262::sendLORAPacket(const GATAS::RadioParameters &parameters, const uint
     // These Setting are handled in sendLORAPacket because codingrate is set dynamically packet
     sx126x_set_lora_mod_params(this, &mod);
 
-    int8_t powerdBm = LOW_POWER_MODE ? LOW_POWER_DBM : etl::max(static_cast<int8_t>(22), parameters.frequency->powerdBm);
+    int8_t powerdBm = LOW_POWER_MODE ? LOW_POWER_DBM : etl::min(static_cast<int8_t>(22), parameters.frequency->powerdBm);
     sx126x_set_tx_params(this, powerdBm, SX126X_RAMP_200_US);
 
     // Wait until CAD done
@@ -469,7 +474,7 @@ void Sx1262::receiveGFSKPacket()
         if (receivedFrameLength >= 4)
         {
             // ADSL OHR has a lot of false packets, we eurly detect them and drop them
-            if (rxRadioParameters.config->dataSource() == GATAS::DataSource::ADSLO_HDR && (receivedFrameLength % 4 != 0))
+            if (lastRadioParameters.config->dataSource() == GATAS::DataSource::ADSLO_HDR && (receivedFrameLength % 4 != 0))
             {
                 GATAS_WARN("Dropping invalid ADSL HDR packet");
                 return;
@@ -479,8 +484,8 @@ void Sx1262::receiveGFSKPacket()
             {
                 GATAS::DataFrame rxFrame{
                     .epochSeconds = CoreUtils::secondsSinceEpoch(),
-                    .frequency = rxRadioParameters.hopFrequency,
-                    .config = rxRadioParameters.config,
+                    .frequency = lastRadioParameters.hopFrequency,
+                    .config = lastRadioParameters.config,
                     .frame = {getGlobalPool(), frameData},
                     .length = receivedFrameLength,
                     .rssidBm = pkt_status.rssi_avg,
@@ -524,8 +529,8 @@ void Sx1262::receiveLORAPacket()
             {
                 GATAS::DataFrame rxFrame{
                     .epochSeconds = CoreUtils::secondsSinceEpoch(),
-                    .frequency = rxRadioParameters.hopFrequency,
-                    .config = rxRadioParameters.config,
+                    .frequency = lastRadioParameters.hopFrequency,
+                    .config = lastRadioParameters.config,
                     .frame = {getGlobalPool(), frameData},
                     .length = receivedFrameLength,
                     .rssidBm = pkt_status.signal_rssi_pkt_in_dbm,
@@ -711,13 +716,13 @@ void Sx1262::sx1262Task(void *arg)
                 bool _;
                 if (auto guard = aceSpi->getLock(_))
                 {
-                    if (rxRadioParameters.frequency->mode == GATAS::Modulation::GFSK)
+                    if (lastRadioParameters.frequency->mode == GATAS::Modulation::GFSK)
                     {
-                        GATAS_MEASURE("Receive GFSK Packet Radio:", 1000, rxRadioParameters.hopFrequency);
+                        GATAS_MEASURE("Receive GFSK Packet Radio:", 1000, lastRadioParameters.hopFrequency);
                         receiveGFSKPacket();
                         doListen = true;
                     }
-                    else if (rxRadioParameters.frequency->mode == GATAS::Modulation::LORA)
+                    else if (lastRadioParameters.frequency->mode == GATAS::Modulation::LORA)
                     {
                         GATAS_MEASURE("Receive Lora Packet Radio:", 1000, radioNo);
                         receiveLORAPacket();
@@ -752,8 +757,14 @@ void Sx1262::sx1262Task(void *arg)
                 bool _;
                 if (auto guard = aceSpi->getLock(_))
                 {
-                    configureSx1262(rxRadioParameters, 0);
-                    listen();
+                    const auto &listenParameters = rxRadioParameters.config->dataSource() == GATAS::DataSource::NONE
+                                                       ? lastRadioParameters
+                                                       : rxRadioParameters;
+                    if (listenParameters.config->dataSource() != GATAS::DataSource::NONE)
+                    {
+                        configureSx1262(listenParameters, 0);
+                        listen();
+                    }
                 }
                 doListen = false;
             }

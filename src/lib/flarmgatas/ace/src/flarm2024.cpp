@@ -131,7 +131,7 @@ void Flarm2024::on_receive(const GATAS::RadioTxPositionRequestMsg &msg)
         packet.noTrack(ownship.conspicuity.noTrack);
         packet.epochSeconds(epochSeconds);
         packet.aircraftType(fromAircraftCategory(ownship.conspicuity.category));
-        packet.altitude(ownship.ellipseHeight);
+        packet.altitude(etl::clamp(ownship.ellipseHeight, static_cast<int32_t>(-1000), static_cast<int32_t>(11286)));
         packet.setPosition(ownship.lat, ownship.lon);
         packet.turnRate(ownship.hTurnRate);
         packet.groundSpeed(ownship.groundSpeed);
