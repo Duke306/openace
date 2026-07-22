@@ -42,7 +42,7 @@ class Sx1262 : public Radio, public etl::message_router<Sx1262, GATAS::RadioTxFr
 #else
     static constexpr bool LOW_POWER_MODE = false;
 #endif
-    static constexpr uint8_t LOW_POWER_DBM = 0; // - 17 (0xEF) to +14 (0x0E) dBm by step of 1 dB if low power PA is selected
+    static constexpr uint8_t LOW_POWER_DBM = 3; // - 17 (0xEF) to +14 (0x0E) dBm by step of 1 dB if low power PA is selected
 
     // SInce the SX1262 only has a buffer of 256 bytes, we offset the RX buffer such that we can receive large frames
     // Maximum size of ADSL TrafficUplink is 200bytes whuch would be the maximum we could receive or transmit
@@ -174,9 +174,10 @@ class Sx1262 : public Radio, public etl::message_router<Sx1262, GATAS::RadioTxFr
     uint8_t currentConfiguredPcId = PROTOCOL_NONE.pcId;
     GATAS::Modulation currentConfiguredModulation = GATAS::Modulation::NONE;
     etl::queue_spsc_atomic<TxPacket, 3, etl::memory_model::MEMORY_MODEL_SMALL> txQueue;
-    GATAS::RadioParameters rxRadioParameters{&PROTOCOL_NONE, nullptr, 868'000'000, 0};
+    GATAS::RadioParameters rxRadioParameters{&PROTOCOL_NONE, &GATAS::RadioParameters::DEFAULT, 868'000'000, 0};
     // Used when new radioPatemers have arrived during RX requests
-    GATAS::RadioParameters newRxRadioParameters{&PROTOCOL_NONE, nullptr, 868'000'000, 0};
+    GATAS::RadioParameters newRxRadioParameters{&PROTOCOL_NONE, &GATAS::RadioParameters::DEFAULT, 868'000'000, 0};
+    GATAS::RadioParameters lastRadioParameters{&PROTOCOL_NONE, &GATAS::RadioParameters::DEFAULT, 868'000'000, 0};
 
 public:
     static constexpr etl::array<etl::string_view, 4> NAMES{"Sx1262_0", "Sx1262_1", "Sx1262_2", "Sx1262_3"};

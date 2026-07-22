@@ -25,7 +25,7 @@ void RadioTunerTx::start()
     Configuration *configuration = static_cast<Configuration *>(BaseModule::moduleByName(*this, Configuration::NAME));
     if (configuration)
     {
-      on_receive(GATAS::ConfigUpdatedMsg(*configuration, Configuration::NAME));
+        on_receive(GATAS::ConfigUpdatedMsg(*configuration, Configuration::NAME));
     }
 };
 
@@ -238,7 +238,8 @@ void RadioTunerTx::assignDataSources(const etl::span<GATAS::DataSourceConfig> &n
         for (auto &&ds : newDataSources)
         {
             // Ignore Datasources that are not for transmission
-            if (!ds.isTx()) {
+            if (!ds.isTx())
+            {
                 continue;
             }
             const auto timing = CountryRegulations::getProtocolTxTimings(currentZone, ds.dataSource);
