@@ -28,4 +28,14 @@ public:
     */
     virtual const uint8_t* data() const = 0;
 
+    /**
+     * Gets the number of bytes written since the store was last rewound.
+     */
+    virtual size_t writtenSize() const = 0;
+
+    /**
+     * Gets the maximum number of bytes that can be stored.
+     */
+    virtual size_t capacity() const = 0;
+
 };
