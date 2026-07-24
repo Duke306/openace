@@ -32,6 +32,7 @@ public:
 
         etl::span<uint8_t> data;
         bool cobsMessageProcessed = false;
+        (void) cobsMessageProcessed;
         while (gulp.pop_into(data))
         {
             cobsMessageProcessed = true;
