@@ -30,6 +30,7 @@ export class GaTasStore {
       aircrafts: [],
       numberOfAircrafts: 0,
       configModified: false,
+      configurationEditorOpen: false,
       hardware: {},
       hardwareName: "",
       gatasId: ""

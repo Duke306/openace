@@ -16,7 +16,8 @@ class CobsStreamHandler
 private:
     etl::imessage_bus &bus;
     Configuration &config;
-    etl::vector<uint8_t, 32> gulpBuffer;
+    // gulpBuffer needs to be at least the size of one array of length ending with DelimiterBitmap
+    etl::vector<uint8_t, 48> gulpBuffer;
     Gulp gulp;
 
 public:
@@ -30,8 +31,10 @@ public:
         etl::vector<GATAS::AircraftPositionInfo, GATAS::IngressAircraftPositionsMsg::MAX_POSITIONS> positionMessages;
 
         etl::span<uint8_t> data;
+        bool cobsMessageProcessed = false;
         while (gulp.pop_into(data))
         {
+            cobsMessageProcessed = true;
             decodeCOBS_inplace(data);
             uint8_t frameType = data[0];
             etl::bit_stream_reader reader(data, etl::endian::big);
@@ -97,6 +100,8 @@ public:
                 }
             }
         }
+
+        GATAS_VERIFY( !(!cobsMessageProcessed && gulpBuffer.full()), "CobsStreamHandler: Gulp buffer full without processing a COBS message");
 
         // Send the left over if any
         if (!positionMessages.empty())

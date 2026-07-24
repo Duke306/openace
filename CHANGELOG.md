@@ -11,11 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added MLAT as a recognized aircraft data source with full and compact display names.
 - Added a combined UDP and Bluetooth output mode for GATAS Connect.
+- Added a debug warning when the GATAS Connect COBS buffer fills without producing a complete message.
 
 ### Changed
 
 - Redesigned the SystemGUI with Pico CSS, responsive navigation, consistent forms and dialogs, clearer device status, and improved module monitoring layouts.
 - SystemGUI navigation now follows URL hashes so pages can be linked directly and restored after reload.
+- SystemGUI now enables saving modified RAM configuration to flash only when no aircraft or module configuration editor is open.
 - ADS-B cache value types are now separated from their ETL hash, equality, and ordering policies so invalid default cache entries are not required.
 - Combined GATAS Connect output now prefers UDP traffic while UDP responses are active and automatically restores Bluetooth requests when UDP becomes silent.
 
@@ -30,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Initialized GPS satellite-in-view counters, radio identifiers, and AirConnect client state before use.
+- Aircraft tracking now preserves fresh positions received directly over radio when matching ADS-B or MLAT updates arrive, until the radio-priority timeout expires.
 
 ### Security
 

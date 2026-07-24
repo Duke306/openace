@@ -137,6 +137,7 @@ class GaTasModules extends El {
     this._syncRouteFromLocation = () => {
       const [page, view, encodedModule] = window.location.hash.slice(1).split("/");
       if (page !== "modules") {
+        store.state.configurationEditorOpen = false;
         return;
       }
 
@@ -151,6 +152,7 @@ class GaTasModules extends El {
         this.state.selectedModule = 0;
         this.state.whatToShow = "modules";
       }
+      store.state.configurationEditorOpen = this.state.whatToShow === "configure";
     };
     this._onNavigate = (event) => {
       if (event.detail?.page === "modules") {
@@ -166,6 +168,7 @@ class GaTasModules extends El {
   unmounted() {
     this._running = false;
     clearTimeout(this.timer);
+    store.state.configurationEditorOpen = false;
     window.removeEventListener("gatas:navigate", this._onNavigate);
     window.removeEventListener("hashchange", this._syncRouteFromLocation);
   }
