@@ -21,6 +21,24 @@ const uint8_t DEFAULT_GATAS_CONFIG[] = R"=(
 
 GATAS::ThreadSafeBus<50> bus;
 
+TEST_CASE("InMemoryStore capacity", "[single-file]")
+{
+    uint8_t data[4] = {};
+    InMemoryStore store{sizeof(data), data};
+    const uint8_t exactFit[] = {1, 2, 3, 4};
+
+    REQUIRE(store.capacity() == sizeof(data));
+    REQUIRE(store.writtenSize() == 0);
+    REQUIRE(store.write(exactFit, sizeof(exactFit)) == sizeof(exactFit));
+    REQUIRE(store.writtenSize() == sizeof(data));
+    REQUIRE(store.write(5) == 0);
+
+    store.rewind();
+    REQUIRE(store.writtenSize() == 0);
+    REQUIRE(store.write(exactFit, sizeof(exactFit) + 1) == 0);
+    REQUIRE(store.writtenSize() == 0);
+}
+
 TEST_CASE("Fully Configured", "[single-file]")
 {
     uint8_t vstore[4096] = {};
@@ -137,6 +155,18 @@ TEST_CASE("Fully Configured", "[single-file]")
         REQUIRE(12 == config.valueByPath(0, "ADSBDecoder", "filterAbove"));
         config.setValueBypath("/ADSBDecoder/filterAbove", 15);
         REQUIRE(15 == config.valueByPath(0, "ADSBDecoder", "filterAbove"));
+    }
+
+    SECTION("Config status includes gatasId")
+    {
+        etl::string<256> output;
+        etl::string_stream stream(output);
+
+        config.getData(stream, "/api/Config.json");
+
+        JsonDocument status;
+        REQUIRE(deserializeJson(status, output.c_str()) == DeserializationError::Ok);
+        REQUIRE(status["gatasId"].is<uint32_t>());
     }
 }
 

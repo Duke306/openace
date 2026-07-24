@@ -252,8 +252,8 @@ void Config::serializeToPersistent()
     // So for now we do this from volatileStore
 
     permanentStore.rewind();
-    permanentStore.write(volatileStore.data(), strlen((const char *)volatileStore.data()) + 1);
-    statistics.persistentStoreSize = strlen((char *)permanentStore.data()) + 1;
+    permanentStore.write(volatileStore.data(), volatileStore.writtenSize());
+    statistics.persistentStoreSize = volatileStore.writtenSize();
 }
 
 bool Config::deleteData(const etl::string_view fullPath)

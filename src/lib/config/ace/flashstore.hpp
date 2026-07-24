@@ -19,8 +19,9 @@ class FlashStore : public ConfigStore
 {
     uint32_t flashAddress() const;
 
-    const size_t size;
+    const size_t _size;
     const size_t startsOffsetFromEnd;
+    size_t bytesWritten;
 
 public:
     /**
@@ -45,5 +46,7 @@ public:
      */
     virtual const uint8_t *data() const override;
 
+    size_t writtenSize() const;
+    size_t capacity() const;
 };
 #endif
