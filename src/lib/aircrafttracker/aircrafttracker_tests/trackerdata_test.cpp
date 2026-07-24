@@ -531,7 +531,7 @@ TEST_CASE("TrackerData rejects out-of-order position updates", "[single-file]")
     REQUIRE(stored->second.sendTime == 2'000'000);
 }
 
-TEST_CASE("Radio priority: RADIO 4000000us old, ADSB incoming - should NOT update", "[single-file]")
+TEST_CASE("Radio priority: fresh RADIO, MLAT incoming - should NOT update", "[single-file]")
 {
     TrackerData<100, 4> trackedAircraft;
     time_us_Value = 0;
@@ -545,17 +545,18 @@ TEST_CASE("Radio priority: RADIO 4000000us old, ADSB incoming - should NOT updat
     radioPosition.dataSource = GATAS::DataSource::OGN;
     REQUIRE(trackedAircraft.insert(radioPosition) == true);
 
-    // At t=2000000us, incoming ADSB data arrives
+    // At t=2000000us, incoming MLAT data arrives
     // Radio is 2000000us old, well within priority timeout (4000000us)
     time_us_Value = 2000000;
-    GATAS::AircraftPositionInfo adsbPosition;
-    adsbPosition.address = 42;
-    adsbPosition.timestamp = 2000000;
-    adsbPosition.distanceFromOwn = 5100;
-    adsbPosition.dataSource = GATAS::DataSource::ADSB;
+    GATAS::AircraftPositionInfo mlatPosition;
+    mlatPosition.address = 42;
+    mlatPosition.timestamp = 2000000;
+    mlatPosition.distanceFromOwn = 5100;
+    mlatPosition.dataSource = GATAS::DataSource::MLAT;
 
-    REQUIRE(trackedAircraft.insert(adsbPosition) == false);
+    REQUIRE(trackedAircraft.insert(mlatPosition) == false);
     REQUIRE(trackedAircraft.size() == 1);
+    REQUIRE(trackedAircraft.trackedAircraft.find(radioPosition.address)->second.sendTime == 0);
 
     // Verify radio data was NOT replaced
     class VerifyNotUpdatedHandler
@@ -571,7 +572,7 @@ TEST_CASE("Radio priority: RADIO 4000000us old, ADSB incoming - should NOT updat
     trackedAircraft.sendScheduled(etl::delegate<void(const GATAS::AircraftPositionInfo &)>::create<VerifyNotUpdatedHandler, &VerifyNotUpdatedHandler::onNext>(handler), ownship);
 }
 
-TEST_CASE("Radio priority: RADIO 5000000us old, ADSB incoming - should UPDATE", "[single-file]")
+TEST_CASE("Radio priority: expired RADIO, MLAT incoming - should UPDATE", "[single-file]")
 {
     TrackerData<100, 4> trackedAircraft;
     time_us_Value = 0;
@@ -585,30 +586,65 @@ TEST_CASE("Radio priority: RADIO 5000000us old, ADSB incoming - should UPDATE", 
     radioPosition.dataSource = GATAS::DataSource::OGN;
     REQUIRE(trackedAircraft.insert(radioPosition) == true);
 
-    // At t=5000000us, incoming ADSB data arrives
+    // At t=5000000us, incoming MLAT data arrives
     // Radio is 5000000us old, should exceed priority timeout
     time_us_Value = 5000000;
-    GATAS::AircraftPositionInfo adsbPosition;
-    adsbPosition.address = 42;
-    adsbPosition.timestamp = 5000000;
-    adsbPosition.distanceFromOwn = 5100;
-    adsbPosition.dataSource = GATAS::DataSource::ADSB;
+    GATAS::AircraftPositionInfo mlatPosition;
+    mlatPosition.address = 42;
+    mlatPosition.timestamp = 5000000;
+    mlatPosition.distanceFromOwn = 5100;
+    mlatPosition.dataSource = GATAS::DataSource::MLAT;
 
-    REQUIRE(trackedAircraft.insert(adsbPosition) == true);
+    REQUIRE(trackedAircraft.insert(mlatPosition) == true);
     REQUIRE(trackedAircraft.size() == 1);
 
-    // Verify ADSB data WAS inserted
+    // Verify MLAT data WAS inserted
     class VerifyUpdatedHandler
     {
     public:
         void onNext(const GATAS::AircraftPositionInfo &position)
         {
-            REQUIRE(position.distanceFromOwn == 5100);  // Should be updated ADSB data
-            REQUIRE(position.dataSource == GATAS::DataSource::ADSB);
+            REQUIRE(position.distanceFromOwn == 5100);  // Should be updated MLAT data
+            REQUIRE(position.dataSource == GATAS::DataSource::MLAT);
         }
     } handler;
     time_us_Value = 5000100;
     trackedAircraft.sendScheduled(etl::delegate<void(const GATAS::AircraftPositionInfo &)>::create<VerifyUpdatedHandler, &VerifyUpdatedHandler::onNext>(handler), ownship);
+}
+
+TEST_CASE("Radio priority: fresh RADIO, ADSB incoming - should NOT update", "[single-file]")
+{
+    TrackerData<100, 4> trackedAircraft;
+    time_us_Value = 0;
+    const auto ownship = makeOwnship();
+
+    GATAS::AircraftPositionInfo radioPosition;
+    radioPosition.address = 42;
+    radioPosition.timestamp = 0;
+    radioPosition.distanceFromOwn = 5000;
+    radioPosition.dataSource = GATAS::DataSource::OGN;
+    REQUIRE(trackedAircraft.insert(radioPosition));
+
+    time_us_Value = 2000000;
+    GATAS::AircraftPositionInfo adsbPosition;
+    adsbPosition.address = 42;
+    adsbPosition.timestamp = 2000000;
+    adsbPosition.distanceFromOwn = 5100;
+    adsbPosition.dataSource = GATAS::DataSource::ADSB;
+
+    REQUIRE_FALSE(trackedAircraft.insert(adsbPosition));
+
+    class VerifyNotUpdatedHandler
+    {
+    public:
+        void onNext(const GATAS::AircraftPositionInfo &position)
+        {
+            REQUIRE(position.distanceFromOwn == 5000);
+            REQUIRE(position.dataSource == GATAS::DataSource::OGN);
+        }
+    } handler;
+    time_us_Value = 2000100;
+    trackedAircraft.sendScheduled(etl::delegate<void(const GATAS::AircraftPositionInfo &)>::create<VerifyNotUpdatedHandler, &VerifyNotUpdatedHandler::onNext>(handler), ownship);
 }
 
 TEST_CASE("Data source prefix preserves fixed callsign length", "[single-file]")

@@ -278,23 +278,23 @@ public:
                 return false;
             }
 
-            it->second.sendTime = time;
-
             assignCallsignFromDDB(position);
             assignSquawkCallsign(position);
             assignDataSourcePrefix(position);
 
-            // Prefer MLAT over ADSB for RADIO_PRIORITY_TIMEOUT_US to avoid jumps.
-            // We assume ADSB/MLAT data is less acurate due to delays in the chain
-            // TODO: We should revise this once all timings are validated (they are within a second, bit in finer detail)
-            const bool trackedIsRadio = it->second.position.dataSource != GATAS::DataSource::ADSB;
-            const bool incomingIsMlat = position.dataSource == GATAS::DataSource::ADSB;
+            // Prefer positions received directly over radio to ADS-B and MLAT for
+            // RADIO_PRIORITY_TIMEOUT_US. Direct radio reception provides the most
+            // accurate position while it remains fresh.
+            const bool trackedIsRadio = it->second.position.dataSource < GATAS::DataSource::_RADIO;
+            const bool incomingIsAdsbOrMlat = position.dataSource == GATAS::DataSource::ADSB ||
+                                              position.dataSource == GATAS::DataSource::MLAT;
             const bool radioStillFresh = !CoreUtils::isUsReached(it->second.position.timestamp + RADIO_PRIORITY_TIMEOUT_US, time);
-            if (trackedIsRadio && incomingIsMlat && radioStillFresh)
+            if (trackedIsRadio && incomingIsAdsbOrMlat && radioStillFresh)
             {
                 return false;
             }
 
+            it->second.sendTime = time;
             it->second.position = position;
             pathPredictor.update(position);
             return true;

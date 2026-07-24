@@ -48,14 +48,14 @@ void RadioTunerTx::getData(etl::string_stream &stream, const etl::string_view pa
         firstDs = false;
         const char *dsName = GATAS::toString(ds.slot->radioConfig.dataSource());
 
-#if GATAS_DEBUG == 1
-        uint16_t minT = ds.slot->txMinTime;
-        uint16_t maxT = ds.slot->txMaxTime;
-#else
+//#if GATAS_DEBUG == 1
+//         uint16_t minT = ds.slot->txMinTime;
+//         uint16_t maxT = ds.slot->txMaxTime;
+// #else
 
         uint16_t minT = isAirborne ? ds.slot->txMinTime : ds.slot->reducedTxMinTime;
         uint16_t maxT = isAirborne ? ds.slot->txMaxTime : ds.slot->reducedTxMaxTime;
-#endif
+// #endif
         stream << "{\"ds\":\"" << dsName << "\",\"min\":" << minT << ",\"max\":" << maxT << ",\"slots\":[";
         bool firstSlot = true;
         for (const auto &ts : ds.slot->timeSlots)
@@ -130,11 +130,11 @@ void RadioTunerTx::radioTuneTask()
                                 channelTiming->id},
                             dataSourceToRadio[static_cast<uint8_t>(ds.slot->radioConfig.dataSource())]});
                     statistics.taskActivity += 1;
-#if GATAS_DEBUG == 1
-                    auto delayMs = CountryRegulations::nextRandomTxTime(false, *ds.slot);
-#else
+// #if GATAS_DEBUG == 1
+                    // auto delayMs = CountryRegulations::nextRandomTxTime(false, *ds.slot);
+// #else
                     auto delayMs = CountryRegulations::nextRandomTxTime(!isAirborne, *ds.slot);
-#endif
+// #endif
                     auto currentTimeUs = CoreUtils::timeUs32();
                     if (delayMs != UINT32_MAX)
                     {

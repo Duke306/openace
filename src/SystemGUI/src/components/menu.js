@@ -13,12 +13,17 @@ class Menu extends El {
   }
 
   _saveBr() {
+    if (!store.state.configModified || store.state.configurationEditorOpen) {
+      return;
+    }
+
     store.storeInBRModuleData().then(() => {
       store.init();
     });
   }
 
   render(html) {
+    const saveDisabled = !store.state.configModified || store.state.configurationEditorOpen;
     const navItem = (page, label) => html`
       <li>
         <a
@@ -56,7 +61,9 @@ class Menu extends El {
           <button
             type="button"
             class="flash-button ${store.state.configModified ? "is-modified" : ""}"
+            title="${store.state.configurationEditorOpen ? "Finish editing before saving to flash" : "Save configuration to flash"}"
             onclick=${() => this._saveBr()}
+            ${saveDisabled ? "disabled" : ""}
           >Save</button>
         </div>
       </header>

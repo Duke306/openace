@@ -161,7 +161,7 @@ public:
             static_cast<GATAS::AircraftCategory>(aircraftCategoryIdx),
             false, // stealth
             false, // noTrack
-            true,  // airborne
+            groundSpeed > GATAS::GROUNDSPEED_CONSIDERING_AIRBORN,  // airborne
             lat,
             lon,
             heightHAE,

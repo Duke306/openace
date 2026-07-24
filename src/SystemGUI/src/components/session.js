@@ -19,7 +19,21 @@ class Session extends El {
   }
 
   _editAircraft(html) {
-    return html` <aircraft-config key="config" close=${() => (this.state.editAircraft = false)} selected="${this.state.aircraft}"> </aircraft-config> `;
+    return html` <aircraft-config key="config" close=${() => this._closeEditor()} selected="${this.state.aircraft}"> </aircraft-config> `;
+  }
+
+  unmounted() {
+    store.state.configurationEditorOpen = false;
+  }
+
+  _openEditor() {
+    this.state.editAircraft = true;
+    store.state.configurationEditorOpen = true;
+  }
+
+  _closeEditor() {
+    this.state.editAircraft = false;
+    store.state.configurationEditorOpen = false;
   }
 
   _aircraftUpdated(aircraftId) {
@@ -28,11 +42,11 @@ class Session extends El {
 
   _add() {
     this.state.aircraft = "";
-    this.state.editAircraft = true;
+    this._openEditor();
   }
   _edit() {
     this.state.aircraft = store.state.aircraftId;
-    this.state.editAircraft = true;
+    this._openEditor();
   }
 
   _deleteAircraft() {
