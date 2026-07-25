@@ -43,6 +43,13 @@ public:
         return size;
     }
 
+    size_t erase()
+    {
+        memset(store, 0xFF, totalSize);
+        position = 0;
+        return totalSize;
+    }
+
     const uint8_t *data() const
     {
         return (const uint8_t *)store;

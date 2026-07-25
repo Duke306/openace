@@ -83,7 +83,8 @@
       "disabled": false
     },
     "_comment_clients": "A list of Access Points GATAS will be trying to to connect to.",
-    "clients": []
+    "clients": [
+    ]
   },
   "AceSpi": {},
   "Bmp280": {

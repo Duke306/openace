@@ -61,10 +61,10 @@ class Menu extends El {
           <button
             type="button"
             class="flash-button ${store.state.configModified ? "is-modified" : ""}"
-            title="${store.state.configurationEditorOpen ? "Finish editing before saving to flash" : "Save configuration to flash"}"
+            title="${store.state.configurationEditorOpen ? "Finish editing before storing to flash" : "Store configuration to flash"}"
             onclick=${() => this._saveBr()}
             ${saveDisabled ? "disabled" : ""}
-          >Save</button>
+          >Flash</button>
         </div>
       </header>
     `;
