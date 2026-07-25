@@ -218,29 +218,35 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
                     // Resolve or create the destination only after the complete
                     // JSON document has been validated.
                     auto src = configValueBypath<JsonVariant>(path);
-                    if (src == nullptr)
+                    if (src != nullptr)
                     {
-                        auto const key = path.back();
+                        src.set(update.as<JsonVariantConst>());
+                        dataMutated = true;
+                        requestSucceeded = true;
+                    }
+                    else
+                    {
+                        const auto key = path.back();
                         path.pop_back();
+
                         if (path.size() == 0)
                         {
-                            src = doc[const_cast<char *>(key.c_str())];
+                            auto destination = doc[const_cast<char *>(key.c_str())];
+                            destination.set(update.as<JsonVariantConst>());
+                            dataMutated = true;
+                            requestSucceeded = true;
                         }
                         else
                         {
                             auto parent = configValueBypath<JsonVariant>(path);
                             if (parent != nullptr)
                             {
-                                src = parent[const_cast<char *>(key.c_str())];
+                                auto destination = parent[const_cast<char *>(key.c_str())];
+                                destination.set(update.as<JsonVariantConst>());
+                                dataMutated = true;
+                                requestSucceeded = true;
                             }
                         }
-                    }
-
-                    if (src != nullptr)
-                    {
-                        src.set(update.as<JsonVariantConst>());
-                        dataMutated = true;
-                        requestSucceeded = true;
                     }
                 }
             }

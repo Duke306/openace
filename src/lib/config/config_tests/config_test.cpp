@@ -210,6 +210,23 @@ TEST_CASE("Fully Configured", "[single-file]")
         REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "addressType") == "FLARM");
         REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "category") == "Surface Vehicle");
     }
+
+    SECTION("A new aircraft can be created atomically")
+    {
+        REQUIRE(config.setData(
+                    R"=({"callSign":"BROKEN","address":)=",
+                    "/api/Config/aircraft/BROKEN.json") == false);
+        REQUIRE(config.strValueByPath("missing", "aircraft/BROKEN", "callSign") == "missing");
+
+        const etl::string_view aircraft =
+            R"=({"callSign":"TEST-1","address":1193046,"addressType":"OGN","category":"Small","privacy":0,"noTrack":0,"protocols":[{"OGN":{"mode":"RX"}}]})=";
+        REQUIRE(config.setData(aircraft, "/api/Config/aircraft/TEST-1.json") == true);
+
+        REQUIRE(config.valueByPath(0, "aircraft/TEST-1", "address") == 1193046);
+        REQUIRE(config.strValueByPath("", "aircraft/TEST-1", "callSign") == "TEST-1");
+        REQUIRE(config.strValueByPath("", "aircraft/TEST-1", "addressType") == "OGN");
+        REQUIRE(config.strValueByPath("", "aircraft/TEST-1", "category") == "Small");
+    }
 }
 
 TEST_CASE("Config GATAS::PostConstruct", "[single-file]")
