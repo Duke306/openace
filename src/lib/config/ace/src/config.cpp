@@ -151,23 +151,39 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
     bool dataMutated = false;
     bool requestSucceeded = false;
 
+    auto applyUpdate = [&](auto &&destination)
+    {
+        auto error = deserializeJson(destination, data.cbegin(), data.size());
+        if (error == DeserializationError::Ok)
+        {
+            return true;
+        }
+
+        // deserializeJson() clears its destination before parsing and can leave
+        // a partial value on failure. The volatile store contains the last
+        // complete configuration, so restore it to keep failed updates atomic.
+        if (deserializeJson(doc, volatileStore.data()) != DeserializationError::Ok)
+        {
+            GATAS_WARN("Failed to restore configuration after invalid JSON");
+        }
+        return false;
+    };
+
     if (idx.has_value())
     {
-        // Test the document if it's ok before storage
-        JsonDocument update;
-        if (deserializeJson(update, data.cbegin(), data.size()) == DeserializationError::Ok)
+        auto src = configValueBypath<JsonVariant>(path);
+        auto array = src.as<JsonArray>();
+        if (array && idx.value() >= 0 && static_cast<size_t>(idx.value()) < array.size())
         {
-            // Set data by index.
-            auto src = configValueBypath<JsonVariant>(path);
-            auto array = src.as<JsonArray>();
-            if (array && idx.value() >= 0 && static_cast<size_t>(idx.value()) < array.size())
+            if (applyUpdate(array[idx.value()]))
             {
-                array[idx.value()].set(update.as<JsonVariantConst>());
                 dataMutated = true;
                 requestSucceeded = true;
-            } else {
-                GATAS_WARN("Failed to mutate data");
             }
+        }
+        else
+        {
+            GATAS_WARN("Failed to mutate data");
         }
     }
     else
@@ -212,42 +228,35 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
             }
             else
             {
-                JsonDocument update;
-                if (deserializeJson(update, data.cbegin(), data.size()) == DeserializationError::Ok)
+                auto destination = configValueBypath<JsonVariant>(path);
+                bool updateApplied = false;
+                if (destination != nullptr)
                 {
-                    // Resolve or create the destination only after the complete
-                    // JSON document has been validated.
-                    auto src = configValueBypath<JsonVariant>(path);
-                    if (src != nullptr)
+                    updateApplied = applyUpdate(destination);
+                }
+                else
+                {
+                    const auto key = path.back();
+                    path.pop_back();
+
+                    if (path.size() == 0)
                     {
-                        src.set(update.as<JsonVariantConst>());
-                        dataMutated = true;
-                        requestSucceeded = true;
+                        updateApplied = applyUpdate(doc[const_cast<char *>(key.c_str())]);
                     }
                     else
                     {
-                        const auto key = path.back();
-                        path.pop_back();
-
-                        if (path.size() == 0)
+                        auto parent = configValueBypath<JsonVariant>(path);
+                        if (parent != nullptr)
                         {
-                            auto destination = doc[const_cast<char *>(key.c_str())];
-                            destination.set(update.as<JsonVariantConst>());
-                            dataMutated = true;
-                            requestSucceeded = true;
-                        }
-                        else
-                        {
-                            auto parent = configValueBypath<JsonVariant>(path);
-                            if (parent != nullptr)
-                            {
-                                auto destination = parent[const_cast<char *>(key.c_str())];
-                                destination.set(update.as<JsonVariantConst>());
-                                dataMutated = true;
-                                requestSucceeded = true;
-                            }
+                            updateApplied = applyUpdate(parent[const_cast<char *>(key.c_str())]);
                         }
                     }
+                }
+
+                if (updateApplied)
+                {
+                    dataMutated = true;
+                    requestSucceeded = true;
                 }
             }
         }

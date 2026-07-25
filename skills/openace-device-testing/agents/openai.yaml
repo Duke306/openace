@@ -1,4 +1,4 @@
 interface:
   display_name: "OpenAce Device Testing"
-  short_description: "Test configuration and flash persistence"
-  default_prompt: "Use $openace-device-testing to run a safe configuration and flash regression test on an OpenAce device."
+  short_description: "Run safe OpenAce hardware and UI regressions"
+  default_prompt: "Use $openace-device-testing to test an OpenAce device and restore its starting configuration."

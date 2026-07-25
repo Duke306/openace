@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openace-device-ui-tests"
+version = "0.1.0"
+description = "Hardware-in-the-loop Playwright tests for the OpenAce web interface"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.50",
+    "pytest>=8.0",
+    "pytest-playwright>=0.6",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.9"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --tracing=retain-on-failure --screenshot=only-on-failure"
+testpaths = ["tests"]
+markers = [
+    "aircraft_mutation: reversibly modifies aircraft configuration",
+    "persistence: saves configuration and restarts the device",
+    "destructive: erases configuration or enters firmware-update mode",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
