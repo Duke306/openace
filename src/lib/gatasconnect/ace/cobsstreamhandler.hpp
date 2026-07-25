@@ -17,7 +17,7 @@ private:
     etl::imessage_bus &bus;
     Configuration &config;
     // gulpBuffer needs to be at least the size of one array of length ending with DelimiterBitmap
-    etl::vector<uint8_t, 48> gulpBuffer;
+    etl::vector<uint8_t, 64> gulpBuffer;
     Gulp gulp;
 
 public:
