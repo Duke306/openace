@@ -266,6 +266,7 @@ public:
             const int32_t sampleOrderUs = static_cast<int32_t>(position.timestamp - it->second.position.timestamp);
             if (sampleOrderUs < 0)
             {
+                GATAS_WARN("-------- 1");
                 return false;
             }
 
@@ -275,6 +276,7 @@ public:
             {
                 pathPredictor.remove(position.address);
                 trackedAircraft.erase(it);
+                GATAS_WARN("-------- 2");
                 return false;
             }
 
@@ -291,6 +293,7 @@ public:
             const bool radioStillFresh = !CoreUtils::isUsReached(it->second.position.timestamp + RADIO_PRIORITY_TIMEOUT_US, time);
             if (trackedIsRadio && incomingIsAdsbOrMlat && radioStillFresh)
             {
+                GATAS_WARN("-------- 3");
                 return false;
             }
 
@@ -302,6 +305,7 @@ public:
 
         if (position.distanceFromOwn > adaptiveRadius)
         {
+                GATAS_WARN("-------- 4");
             return false;
         }
 
@@ -317,6 +321,7 @@ public:
         GATAS_VERIFY(!trackedAircraft.full(), "TrackerData: Should never be full");
         if (trackedAircraft.full())
         {
+                GATAS_WARN("-------- 5");
             return false;
         }
 

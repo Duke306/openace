@@ -140,7 +140,41 @@ After reconnection:
 
 ## Run a regression case
 
-Use this sequence:
+Prefer the deterministic Playwright suite in `tests/device_ui/` when the
+requested coverage already exists there. Install it in an isolated environment:
+
+```bash
+rtk python3 -m venv tests/device_ui/.venv
+rtk tests/device_ui/.venv/bin/pip install -e tests/device_ui
+rtk tests/device_ui/.venv/bin/playwright install chromium
+```
+
+Run reversible UI/API tests:
+
+```bash
+rtk tests/device_ui/.venv/bin/pytest tests/device_ui \
+  --device-url http://DEVICE
+```
+
+Add `--headed` for visible browser execution. Add `--run-persistence` only when
+save/restart testing is authorized. Never add `--run-destructive` unless the
+identified device is disposable and the user explicitly authorized erasing
+stores or entering firmware-update mode.
+
+The suite must:
+
+- use the UI for the action under test and the API for post-action assertions;
+- create unique temporary aircraft rather than repurposing operational entries;
+- preserve the complete record when varying one field;
+- retain Playwright traces and screenshots on failure;
+- restore the original selected aircraft and remove temporary records;
+- verify cleanup through GET requests.
+
+When adding coverage, keep selectors and workflows in `pages/`, assertions and
+parameter matrices in `tests/`, and device transport behavior in
+`pages/api_client.py`.
+
+For a manual case not yet represented in the suite, use this sequence:
 
 1. Translate the report into one observable claim.
 2. Record prerequisites and the smallest exact reproduction steps.
