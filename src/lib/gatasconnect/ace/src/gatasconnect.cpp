@@ -69,7 +69,10 @@ void GatasConnect::on_receive(const GATAS::IngressAircraftPositionMsg &msg)
 {
     if (msg.position.dataSource < GATAS::DataSource::_RADIO)
     {
-        lastRadioTrafficUs = CoreUtils::timeUs64();
+        if (auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()})
+        {
+            lastRadioTrafficUs = CoreUtils::timeUs64();
+        }
     }
 }
 

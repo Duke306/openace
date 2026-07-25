@@ -49,6 +49,9 @@ void __not_in_flash_func(pico_flash_bank_perform_flash)(void *param)
 
     if (mop->p1 != nullptr)
     {
+        // Known limitation: flash_range_program() requires whole pages, so the
+        // final page may read beyond the logical payload. Current callers use
+        // fixed-size backing stores with enough remaining storage for this.
         auto flashProgramBytes = ((mop->size + FLASH_PAGE_SIZE - 1) / FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
         flash_range_program(mop->address, mop->p1, flashProgramBytes);
     }
@@ -71,14 +74,17 @@ size_t __not_in_flash_func(FlashStore::write)(const uint8_t *buffer, size_t leng
     if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
     {
         // Safe version when multitasking
-        flash_safe_execute(pico_flash_bank_perform_flash, &mop, UINT32_MAX);
+        if (flash_safe_execute(pico_flash_bank_perform_flash, &mop, UINT32_MAX) == PICO_OK)
+        {
+            bytesWritten = length;
+            return length;
+        }
     }
     else
     {
         puts("Doing Flash operations seems to be buggy outside of FreeRTOS task, please call these only from within a FreeRTOS Task");
-
     }
-    return length;
+    return 0;
 }
 
 size_t __not_in_flash_func(FlashStore::erase)()

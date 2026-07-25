@@ -169,6 +169,7 @@ TEST_CASE("Fully Configured", "[single-file]")
         REQUIRE(status["gatasId"].is<uint32_t>());
     }
 
+#if GATAS_DEBUG == 1
     SECTION("Erase stored configuration")
     {
         REQUIRE(config.setData("{}", "/api/Config/EraseBr.json") == true);
@@ -185,6 +186,7 @@ TEST_CASE("Fully Configured", "[single-file]")
 
         REQUIRE(config.valueByPath(1, "signature", "") == 250801);
     }
+#endif
 
     SECTION("Invalid JSON does not partially overwrite an aircraft")
     {
