@@ -168,6 +168,48 @@ TEST_CASE("Fully Configured", "[single-file]")
         REQUIRE(deserializeJson(status, output.c_str()) == DeserializationError::Ok);
         REQUIRE(status["gatasId"].is<uint32_t>());
     }
+
+    SECTION("Erase stored configuration")
+    {
+        REQUIRE(config.setData("{}", "/api/Config/EraseBr.json") == true);
+
+        for (auto value : pstore)
+        {
+            REQUIRE(value == 0xFF);
+        }
+
+        for (auto value : vstore)
+        {
+            REQUIRE(value == 0xFF);
+        }
+
+        REQUIRE(config.valueByPath(1, "signature", "") == 250801);
+    }
+
+    SECTION("Invalid JSON does not partially overwrite an aircraft")
+    {
+        REQUIRE(config.valueByPath(0, "aircraft/XX-XXX", "address") == 12345678);
+        REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "category") == "Small");
+
+        const etl::string_view partialAircraft =
+            R"=({"callSign":"XX-XXX","address":109,"addressType":"FLARM","category":)=";
+        REQUIRE(config.setData(partialAircraft, "/api/Config/aircraft/XX-XXX.json") == false);
+
+        REQUIRE(config.valueByPath(0, "aircraft/XX-XXX", "address") == 12345678);
+        REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "addressType") == "OGN");
+        REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "category") == "Small");
+    }
+
+    SECTION("A complete aircraft update is applied atomically")
+    {
+        const etl::string_view aircraft =
+            R"=({"callSign":"XX-XXX","address":10994641,"addressType":"FLARM","category":"Surface Vehicle","privacy":0,"noTrack":0,"protocols":["OGN","FLARM_TX","ADSL","FANET"]})=";
+        REQUIRE(config.setData(aircraft, "/api/Config/aircraft/XX-XXX.json") == true);
+
+        REQUIRE(config.valueByPath(0, "aircraft/XX-XXX", "address") == 10994641);
+        REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "addressType") == "FLARM");
+        REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "category") == "Surface Vehicle");
+    }
 }
 
 TEST_CASE("Config GATAS::PostConstruct", "[single-file]")

@@ -148,8 +148,8 @@ export class GaTasStore {
 
   /**
    * Update the type of board this is running on
-   * @param {*} type 
-   * @returns 
+   * @param {*} type
+   * @returns
    */
   updateHardware(typeIdx) {
     const type = this.availableHardware[typeIdx].hardware;
@@ -246,13 +246,13 @@ export class GaTasStore {
       signal: AbortSignal.timeout(5500),
     })
       .then((response) => {
-        if (path.includes("SaveBR.json")) {
+        if (!response.ok) {
+          throw new Error(`Device rejected ${requestOptions?.method ?? "GET"} ${path} (${response.status})`);
+        }
+        if (path.includes("SaveBr.json")) {
           this.state.configModified = false;
         } else if (["POST", "DELETE", "PATCH"].includes(requestOptions?.method)) {
           this.state.configModified = true;
-        }
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
         }
         this.state.connected = true;
         return response.json();

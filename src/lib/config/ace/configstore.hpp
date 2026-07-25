@@ -18,8 +18,15 @@ public:
 
     /**
      * Write data to the datastore from a buffer.
-    */
+     */
     virtual size_t write(const uint8_t *buffer, size_t length) = 0;
+
+    /**
+     * Erase the complete datastore.
+     *
+     * Returns the number of bytes erased, or zero when the erase failed.
+     */
+    virtual size_t erase() = 0;
 
     /**
      * Get's a pointer to the datastore
