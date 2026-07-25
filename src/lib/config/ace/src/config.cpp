@@ -197,7 +197,8 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
                 serializeToPersistent();
                 requestSucceeded = true;
             }
-            // Added for automated testing. We are not planning to use ttis in real life
+#if GATAS_DEBUG == 1
+            // Added for automated testing. This endpoint is excluded from release firmware.
             else if (path.back() == "EraseBr")
             {
                 auto persistentBytesErased = permanentStore.erase();
@@ -208,6 +209,7 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
                 }
                 requestSucceeded = true;
             }
+#endif
             // TODO: See if its possible to make something that these two are not in the config
             else if (path.back() == "Restart")
             {
@@ -296,6 +298,9 @@ void Config::serializeToPersistent()
     // So for now we do this from volatileStore
 
     permanentStore.rewind();
+    // Known limitation: persistence failures are not propagated to SaveBr yet.
+    // The store reports zero on failure, but the current API keeps its historic
+    // best-effort save behavior.
     permanentStore.write(volatileStore.data(), volatileStore.writtenSize());
     statistics.persistentStoreSize = volatileStore.writtenSize();
 }
