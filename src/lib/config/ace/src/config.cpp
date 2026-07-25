@@ -149,16 +149,25 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
 {
     auto [idx, path] = getConfigPath(fullPath);
     bool dataMutated = false;
+    bool requestSucceeded = false;
 
     if (idx.has_value())
     {
-        // Set data by index
-        auto src = configValueBypath<JsonVariant>(path);
-        auto array = src.as<JsonArray>();
-        if (array)
+        // Test the document if it's ok before storage
+        JsonDocument update;
+        if (deserializeJson(update, data.cbegin(), data.size()) == DeserializationError::Ok)
         {
-            deserializeJson(array[idx.value()], data.cbegin(), data.cend() - data.cbegin());
-            dataMutated = true;
+            // Set data by index.
+            auto src = configValueBypath<JsonVariant>(path);
+            auto array = src.as<JsonArray>();
+            if (array && idx.value() >= 0 && static_cast<size_t>(idx.value()) < array.size())
+            {
+                array[idx.value()].set(update.as<JsonVariantConst>());
+                dataMutated = true;
+                requestSucceeded = true;
+            } else {
+                GATAS_WARN("Failed to mutate data");
+            }
         }
     }
     else
@@ -170,7 +179,9 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
                 doc["config"]["_dirty"] = false;
                 serializeToVolatile();
                 serializeToPersistent();
+                requestSucceeded = true;
             }
+            // Added for automated testing. We are not planning to use ttis in real life
             else if (path.back() == "EraseBr")
             {
                 auto persistentBytesErased = permanentStore.erase();
@@ -179,6 +190,7 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
                 {
                     statistics.persistentStoreSize = 0;
                 }
+                requestSucceeded = true;
             }
             // TODO: See if its possible to make something that these two are not in the config
             else if (path.back() == "Restart")
@@ -200,29 +212,37 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
             }
             else
             {
-                // Test of key exists, if not, create an entry
-                auto src = configValueBypath<JsonVariant>(path);
-
-                if (src == nullptr)
+                JsonDocument update;
+                if (deserializeJson(update, data.cbegin(), data.size()) == DeserializationError::Ok)
                 {
-                    // When key does not exist, create it firs at
-                    auto const key = path.back();
-                    path.pop_back();
-                    // TODO: Move check for epty path and return doc to configValueBypath
-                    if (path.size() == 0)
+                    // Resolve or create the destination only after the complete
+                    // JSON document has been validated.
+                    auto src = configValueBypath<JsonVariant>(path);
+                    if (src == nullptr)
                     {
-                        src = doc;
-                    }
-                    else
-                    {
-                        src = configValueBypath<JsonVariant>(path);
+                        auto const key = path.back();
+                        path.pop_back();
+                        if (path.size() == 0)
+                        {
+                            src = doc[const_cast<char *>(key.c_str())];
+                        }
+                        else
+                        {
+                            auto parent = configValueBypath<JsonVariant>(path);
+                            if (parent != nullptr)
+                            {
+                                src = parent[const_cast<char *>(key.c_str())];
+                            }
+                        }
                     }
 
-                    // Must add a non const ptr for ArduinoJson so a copy will be made instead of reference
-                    src = src[const_cast<char *>(key.c_str())].to<JsonObject>();
+                    if (src != nullptr)
+                    {
+                        src.set(update.as<JsonVariantConst>());
+                        dataMutated = true;
+                        requestSucceeded = true;
+                    }
                 }
-                deserializeJson(src, data.cbegin(), data.size());
-                dataMutated = true;
             }
         }
     }
@@ -244,7 +264,7 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
         }
     }
 
-    return dataMutated;
+    return requestSucceeded;
 }
 
 void Config::serializeToVolatile()
