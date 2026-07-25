@@ -168,6 +168,23 @@ TEST_CASE("Fully Configured", "[single-file]")
         REQUIRE(deserializeJson(status, output.c_str()) == DeserializationError::Ok);
         REQUIRE(status["gatasId"].is<uint32_t>());
     }
+
+    SECTION("Erase stored configuration")
+    {
+        REQUIRE(config.setData("{}", "/api/Config/EraseBr.json") == false);
+
+        for (auto value : pstore)
+        {
+            REQUIRE(value == 0xFF);
+        }
+
+        for (auto value : vstore)
+        {
+            REQUIRE(value == 0xFF);
+        }
+
+        REQUIRE(config.valueByPath(1, "signature", "") == 250801);
+    }
 }
 
 TEST_CASE("Config GATAS::PostConstruct", "[single-file]")

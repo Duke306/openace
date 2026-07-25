@@ -40,6 +40,7 @@ public:
 
     virtual size_t write(uint8_t c) override;
     virtual size_t write(const uint8_t *data, size_t size) override;
+    virtual size_t erase() override;
 
     /**
      * Returns a pointer to the in memory data object

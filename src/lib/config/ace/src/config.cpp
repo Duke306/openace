@@ -171,6 +171,15 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
                 serializeToVolatile();
                 serializeToPersistent();
             }
+            else if (path.back() == "EraseBr")
+            {
+                auto persistentBytesErased = permanentStore.erase();
+                volatileStore.erase();
+                if (persistentBytesErased > 0)
+                {
+                    statistics.persistentStoreSize = 0;
+                }
+            }
             // TODO: See if its possible to make something that these two are not in the config
             else if (path.back() == "Restart")
             {

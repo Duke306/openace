@@ -55,6 +55,7 @@ void __not_in_flash_func(pico_flash_bank_perform_flash_write)(void *param)
     flash_range_program(mop->address, mop->p1, flashProgramBytes);
 }
 
+
 size_t __not_in_flash_func(FlashStore::write)(const uint8_t *buffer, size_t length)
 {
     if (length > _size)
@@ -92,6 +93,29 @@ size_t __not_in_flash_func(FlashStore::write)(const uint8_t *buffer, size_t leng
         // restore_interrupts(irqStatus);
     }
     return length;
+}
+
+size_t __not_in_flash_func(FlashStore::erase)()
+{
+    FlashMutation mop =
+        {
+            .size = _size,
+            .address = flashAddress(),
+            .p1 = nullptr};
+
+    if (xTaskGetSchedulerState() != taskSCHEDULER_RUNNING)
+    {
+        puts("Flash erase requires the FreeRTOS scheduler to be running");
+        return 0;
+    }
+
+    auto result = flash_safe_execute(pico_flash_bank_perform_flash_erase, &mop, UINT32_MAX);
+    if (result != PICO_OK)
+    {
+        return 0;
+    }
+
+    return _size;
 }
 
 const uint8_t *FlashStore::data() const
