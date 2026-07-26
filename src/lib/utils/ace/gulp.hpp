@@ -129,6 +129,16 @@ public:
         return !buffer_.empty();
     }
 
+    /**
+     * Discard all buffered and referenced input and restart with an empty stream.
+     */
+    void erase()
+    {
+        buffer_.clear();
+        currentRef_ = {};
+        refPos_ = 0;
+    }
+
 private:
     // --- helpers ---
 

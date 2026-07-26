@@ -102,7 +102,16 @@ public:
             }
         }
 
-        GATAS_VERIFY( !(!cobsMessageProcessed && gulpBuffer.full()), "CobsStreamHandler: Gulp buffer full without processing a COBS message");
+        bool fullAndNothingProcessed = !cobsMessageProcessed && gulpBuffer.full();
+
+        // If we are full and nothing processed, there is a resobale chance that we won't ever process anything, so we need to start picking up again
+        // therefor we clear the buffers
+        if (fullAndNothingProcessed)
+        {
+            GATAS_WARN("CobsStreamHandler: Gulp buffer full without processing a COBS message");
+            gulp.erase();
+        }
+
 
         // Send the left over if any
         if (!positionMessages.empty())

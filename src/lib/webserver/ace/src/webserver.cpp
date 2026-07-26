@@ -51,36 +51,38 @@ err_t httpd_post_begin(void *connection, const char *uri, const char *http_reque
                        u16_t response_uri_len, u8_t *post_auto_wnd)
 {
     LWIP_UNUSED_ARG(http_request_len);
-    LWIP_UNUSED_ARG(response_uri);
-    LWIP_UNUSED_ARG(response_uri_len);
     etl::string_view sv_uri(uri);
     etl::string_view sv_http_request(http_request);
-    if (sv_uri.starts_with("/api/"))
-    {
-        if (requestContext.connection == nullptr)
-        {
-            *post_auto_wnd = 1; // Must be set to 1
-            requestContext =
-                {
-                    .connection = connection,
-                    .uri = uri,
-                    .method = RequestContext_t::POST,
-                    .buffer = {},
-                    .bufferPosition = 0,
-                    .expectedContentLength = content_len > 0 ? static_cast<size_t>(content_len) : 0,
-                    .failed = content_len <= 0 || static_cast<size_t>(content_len) >= sizeof(requestContext.buffer)};
 
-            // LWiP doesn't handle DELETE requests, so the Frontend must add this as a header to indicate a DELETE request within a POST
-            if (sv_http_request.find(X_GATAS_METHOD_DELETE) != etl::string_view::npos)
-            {
-                requestContext.method = RequestContext_t::DELETE;
-            }
-        }
-        else
-        {
-            return ERR_USE; // Only one POST at a time
-        }
+    if (!sv_uri.starts_with("/api/"))
+    {
+        snprintf(response_uri, response_uri_len, "/error.json");
+        return ERR_ARG;
     }
+
+    if (requestContext.connection != nullptr)
+    {
+        snprintf(response_uri, response_uri_len, "/error.json");
+        return ERR_USE; // Only one POST at a time
+    }
+
+    *post_auto_wnd = 1; // Must be set to 1
+    requestContext =
+        {
+            .connection = connection,
+            .uri = uri,
+            .method = RequestContext_t::POST,
+            .buffer = {},
+            .bufferPosition = 0,
+            .expectedContentLength = content_len > 0 ? static_cast<size_t>(content_len) : 0,
+            .failed = content_len <= 0 || static_cast<size_t>(content_len) >= sizeof(requestContext.buffer)};
+
+    // LWiP doesn't handle DELETE requests, so the Frontend must add this as a header to indicate a DELETE request within a POST
+    if (sv_http_request.find(X_GATAS_METHOD_DELETE) != etl::string_view::npos)
+    {
+        requestContext.method = RequestContext_t::DELETE;
+    }
+
     return ERR_OK;
 }
 
@@ -127,7 +129,6 @@ void httpd_post_finished(void *connection, char *response_uri, u16_t response_ur
 
     if (requestContext.connection != connection)
     {
-        requestContext.connection = nullptr;
         snprintf(response_uri, response_uri_len, "/error.json");
         return;
     }

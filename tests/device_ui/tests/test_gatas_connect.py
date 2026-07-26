@@ -7,7 +7,7 @@ import pytest
 from pages.api_client import DeviceApi
 
 
-def test_gatas_connect_provides_adsb_traffic_to_aircraft_tracker(api: DeviceApi) -> None:
+def test_gatas_connect_provides_adsb_or_mlat_traffic_to_aircraft_tracker(api: DeviceApi) -> None:
     configured_modules = api.get("/api/Config/modules.json")
     assert isinstance(configured_modules, str)
 
@@ -22,14 +22,14 @@ def test_gatas_connect_provides_adsb_traffic_to_aircraft_tracker(api: DeviceApi)
         assert isinstance(tracker_data, dict)
         last_tracker_data = tracker_data
 
-        aircraft = tracker_data.get("aircraft", {})
+        aircraft = tracker_data.get("aircraft:aoa", {})
         data_sources = aircraft.get("ds", [])
-        if "ADSB" in data_sources:
+        if any(source in {"ADSB", "MLAT"} for source in data_sources):
             return
 
         time.sleep(0.5)
 
     pytest.fail(
-        "GatasConnect is enabled, but AircraftTracker reported no ADSB aircraft "
+        "GatasConnect is enabled, but AircraftTracker reported no ADSB or MLAT aircraft "
         f"within 15 seconds; last response: {last_tracker_data!r}"
     )

@@ -29,7 +29,7 @@ OPENACE_DEVICE_URL=http://192.168.178.227 .venv/bin/pytest --run-persistence
 Run one area:
 
 ```bash
-OPENACE_DEVICE_URL=http://192.168.178.227 .venv/bin/pytest tests/test_aircraft_crud.py
+OPENACE_DEVICE_URL=http://192.168.178.227 .venv/bin/pytest tests/test_gatas_connect.py
 ```
 
 Use `--headed` to watch the browser. Playwright traces and screenshots are
