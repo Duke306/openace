@@ -6,7 +6,7 @@
 #include "ace/models.hpp"
 
 #include "ace/bitutils.hpp"
-#include "etl/queue_spsc_atomic.h"
+#include "etl/queue_mpmc_mutex.h"
 
 /**
  * @brief THis was created to handle the raw Lora/GFSK frames from the radio tranceivers such that the tranceiver is quickly ofloaded.
@@ -33,7 +33,7 @@ private:
     } statistics;
 
     TaskHandle_t taskHandle;
-    etl::queue_spsc_atomic<GATAS::DataFrame, 2, etl::memory_model::MEMORY_MODEL_SMALL> dataQueue;
+    etl::queue_mpmc_mutex<GATAS::DataFrame, 2, etl::memory_model::MEMORY_MODEL_SMALL> dataQueue;
 
     static void radioQueueTaskTrampoline(void *arg);
     void radioQueueTask(void *arg);

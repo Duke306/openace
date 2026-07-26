@@ -70,6 +70,15 @@ class DeviceApi:
     def save(self) -> Any:
         return self.post("/api/Config/SaveBr.json", {})
 
+    def persistent_matches_volatile(self) -> bool:
+        try:
+            self.post("/api/Config/CompareBr.json", {})
+        except DeviceApiError as error:
+            if error.status == 400:
+                return False
+            raise
+        return True
+
     def restart(self) -> None:
         try:
             self.post("/api/Config/Restart.json", {})

@@ -18,7 +18,7 @@
 #include "pico/stdlib.h"
 
 /* Vendor. */
-#include "etl/queue_spsc_atomic.h"
+#include "etl/queue_mpmc_mutex.h"
 
 /* GaTas Libraries */
 #include "ace/constants.hpp"
@@ -73,6 +73,12 @@ class Sx1262 : public Radio, public etl::message_router<Sx1262, GATAS::RadioTxFr
         uint32_t transmittedPackets = 0;
         uint32_t buzyWaitsTimeout = 0;
         uint32_t queueFull = 0;
+        uint32_t txConfigureStarted = 0;
+        uint32_t txConfigureCompleted = 0;
+        uint32_t txSendPacketCompleted = 0;
+        uint32_t txTimerStarted = 0;
+        uint32_t txTimerCallbacks = 0;
+        uint32_t txDoneTimeoutCombined = 0;
     } statistics;
 
     // ************************************************************************************
@@ -173,7 +179,7 @@ class Sx1262 : public Radio, public etl::message_router<Sx1262, GATAS::RadioTxFr
     sx126x_errors_mask_t currentDeviceError=0;
     uint8_t currentConfiguredPcId = PROTOCOL_NONE.pcId;
     GATAS::Modulation currentConfiguredModulation = GATAS::Modulation::NONE;
-    etl::queue_spsc_atomic<TxPacket, 3, etl::memory_model::MEMORY_MODEL_SMALL> txQueue;
+    etl::queue_mpmc_mutex<TxPacket, 3, etl::memory_model::MEMORY_MODEL_SMALL> txQueue;
     GATAS::RadioParameters rxRadioParameters{&PROTOCOL_NONE, &GATAS::RadioParameters::DEFAULT, 868'000'000, 0};
     // Used when new radioPatemers have arrived during RX requests
     GATAS::RadioParameters newRxRadioParameters{&PROTOCOL_NONE, &GATAS::RadioParameters::DEFAULT, 868'000'000, 0};

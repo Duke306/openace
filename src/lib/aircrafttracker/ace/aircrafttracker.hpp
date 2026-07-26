@@ -9,6 +9,7 @@
 
 #include "pico/stdlib.h"
 
+#include "etl/queue_mpmc_mutex.h"
 #include "etl/queue_spsc_atomic.h"
 
 #include "ace/constants.hpp"
@@ -73,7 +74,7 @@ private:
     GATAS::OwnshipPositionInfo ownshipPosition = {};
 
     // Producer Consumer queue to handle data between this task and the send task
-    etl::queue_spsc_atomic<GATAS::AircraftPositionInfo, 16, etl::memory_model::MEMORY_MODEL_SMALL> queue;
+    etl::queue_mpmc_mutex<GATAS::AircraftPositionInfo, 16, etl::memory_model::MEMORY_MODEL_SMALL> queue;
     etl::queue_spsc_atomic<Tx_Struct, 1, etl::memory_model::MEMORY_MODEL_SMALL> tXqueue;
 
     using ProtocolRadPattern = GATAS::AntennaRadiationPattern<GATAS_STATSCOLLECTOR_NUM_RADIALS>;
@@ -104,10 +105,7 @@ private:
     void maintenance();
 
     void handleTrackedAircraft(const GATAS::AircraftPositionInfo &position);
-    SemaphoreGuard<> lockTrackedAircraft(uint32_t waitMs = portMAX_DELAY) const
-    {
-        return SemaphoreGuard<>(waitMs, trackedAircraftMutex);
-    }
+    bool enqueuePosition(const GATAS::AircraftPositionInfo &position);
 
 public:
     static constexpr const etl::string_view NAME = "AircraftTracker";

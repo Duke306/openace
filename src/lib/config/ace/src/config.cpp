@@ -1,6 +1,8 @@
 
 #include "../config.hpp"
 
+#include <cstring>
+
 #include "hardware/watchdog.h"
 #include "pico/bootrom.h"
 #include "etl/string_utilities.h"
@@ -209,6 +211,10 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
                 }
                 requestSucceeded = true;
             }
+            else if (path.back() == "CompareBr")
+            {
+                requestSucceeded = persistentMatchesVolatile();
+            }
 #endif
             // TODO: See if its possible to make something that these two are not in the config
             else if (path.back() == "Restart")
@@ -303,6 +309,14 @@ void Config::serializeToPersistent()
     // best-effort save behavior.
     permanentStore.write(volatileStore.data(), volatileStore.writtenSize());
     statistics.persistentStoreSize = volatileStore.writtenSize();
+}
+
+bool Config::persistentMatchesVolatile() const
+{
+    const auto volatileSize = volatileStore.writtenSize();
+    return volatileSize > 0 &&
+           permanentStore.writtenSize() == volatileSize &&
+           std::memcmp(volatileStore.data(), permanentStore.data(), volatileSize) == 0;
 }
 
 bool Config::deleteData(const etl::string_view fullPath)

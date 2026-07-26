@@ -105,6 +105,12 @@ void Sx1262::getData(etl::string_stream &stream, const etl::string_view path) co
     stream << ",\"transmittedPackets:k\":" << statistics.transmittedPackets;
     stream << ",\"buzyWaitsTimeout:err\":" << statistics.buzyWaitsTimeout;
     stream << ",\"txQueueFull:err\":" << statistics.queueFull;
+    stream << ",\"txConfigureStarted:k\":" << statistics.txConfigureStarted;
+    stream << ",\"txConfigureCompleted:k\":" << statistics.txConfigureCompleted;
+    stream << ",\"txSendPacketCompleted:k\":" << statistics.txSendPacketCompleted;
+    stream << ",\"txTimerStarted:k\":" << statistics.txTimerStarted;
+    stream << ",\"txTimerCallbacks:k\":" << statistics.txTimerCallbacks;
+    stream << ",\"txDoneTimeoutCombined:err\":" << statistics.txDoneTimeoutCombined;
     stream << ",\"txQueueSize:k\":" << txQueue.size();
     stream << ",\"mode\":" << "\"" << GATAS::modulationToString(lastRadioParameters.frequency->mode) << "\"";
     stream << ",\"dataSource\":" << "\"" << GATAS::toString(lastRadioParameters.config->dataSource()) << "\"";
@@ -661,6 +667,7 @@ void Sx1262::txTimerCallback(TimerHandle_t timer)
     auto sx1262 = static_cast<Sx1262 *>(pvTimerGetTimerID(timer));
     if (sx1262 != nullptr && sx1262->taskHandle != nullptr)
     {
+        sx1262->statistics.txTimerCallbacks += 1;
         xTaskNotify(sx1262->taskHandle, TaskState::TX_TIMEOUT, eSetBits);
     }
 }
@@ -678,6 +685,12 @@ void Sx1262::sx1262Task(void *arg)
 
         if (notifyValue)
         {
+            if ((notifyValue & (TaskState::DIO1_TX_DONE | TaskState::TX_TIMEOUT)) ==
+                (TaskState::DIO1_TX_DONE | TaskState::TX_TIMEOUT))
+            {
+                statistics.txDoneTimeoutCombined += 1;
+            }
+
             // When a new configuration mark it with a boolean as it needs to be processed later
             if (notifyValue & TaskState::HANDLE_RX_CONFIG)
             {
@@ -739,13 +752,20 @@ void Sx1262::sx1262Task(void *arg)
                 {
                     GATAS_MEASURE("Send Radio:", 1500, radioNo);
                     // GATAS_INFO("%8ld TX Packet ds:%s", CoreUtils::timeUs32Raw() / 1000, GATAS::toString(txPacket.radioParameters.config->dataSource()));
+                    statistics.txConfigureStarted += 1;
                     configureSx1262(txPacket.radioParameters, txPacket.length);
+                    statistics.txConfigureCompleted += 1;
                     sendPacket(txPacket);
+                    statistics.txSendPacketCompleted += 1;
                     transmitting = true;
                     if (xTimerStart(txTimerHandle, portMAX_DELAY) != pdPASS)
                     {
                         GATAS_WARN("Failed to start TX timeout timer");
                         xTaskNotify(taskHandle, TaskState::TX_TIMEOUT, eSetBits);
+                    }
+                    else
+                    {
+                        statistics.txTimerStarted += 1;
                     }
                     continue; // Need to wait for TX done
                 }

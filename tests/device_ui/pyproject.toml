@@ -21,11 +21,11 @@ addopts = "--strict-markers --tracing=retain-on-failure --screenshot=only-on-fai
 testpaths = ["tests"]
 markers = [
     "aircraft_mutation: reversibly modifies aircraft configuration",
-    "persistence: saves configuration and restarts the device",
+    "persistence: saves configuration and compares volatile data with flash",
     "destructive: erases configuration or enters firmware-update mode",
+    "radio_traffic: requires a second GATAS transmitting direct radio traffic",
 ]
 
 [tool.ruff]
 line-length = 110
 target-version = "py311"
-

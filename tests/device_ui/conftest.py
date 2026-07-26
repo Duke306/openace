@@ -19,28 +19,28 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="OpenAce device base URL (or set OPENACE_DEVICE_URL)",
     )
     group.addoption(
-        "--run-persistence",
-        action="store_true",
-        help="Run tests that save configuration and restart the device",
-    )
-    group.addoption(
         "--run-destructive",
         action="store_true",
         help="Run tests that erase stores or enter firmware-update mode",
     )
+    group.addoption(
+        "--run-radio-traffic",
+        action="store_true",
+        help="Run tests that require a second GATAS transmitting radio traffic",
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    if not config.getoption("--run-persistence"):
-        skip = pytest.mark.skip(reason="requires --run-persistence")
-        for item in items:
-            if "persistence" in item.keywords:
-                item.add_marker(skip)
-
     if not config.getoption("--run-destructive"):
         skip = pytest.mark.skip(reason="requires --run-destructive")
         for item in items:
             if "destructive" in item.keywords:
+                item.add_marker(skip)
+
+    if not config.getoption("--run-radio-traffic"):
+        skip = pytest.mark.skip(reason="requires --run-radio-traffic and a second transmitting GATAS")
+        for item in items:
+            if "radio_traffic" in item.keywords:
                 item.add_marker(skip)
 
 

@@ -8,9 +8,8 @@
 // used by the Idle task. */
 void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
                                    StackType_t **ppxIdleTaskStackBuffer,
-                                   uint32_t *pulIdleTaskStackSize, BaseType_t xCoreID)
+                                   uint32_t *pulIdleTaskStackSize)
 {
-    (void)xCoreID;
     /* If the buffers to be provided to the Idle task are declared inside this
     function then they must be declared static – otherwise they will be allocated on
     the stack and so not exists after this function exits. */
@@ -29,6 +28,21 @@ void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
     configMINIMAL_STACK_SIZE is specified in words, not bytes. */
     *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE + 256;
 }
+
+#if configNUMBER_OF_CORES > 1
+void vApplicationGetPassiveIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
+                                          StackType_t **ppxIdleTaskStackBuffer,
+                                          uint32_t *pulIdleTaskStackSize,
+                                          BaseType_t xPassiveIdleTaskIndex)
+{
+    static StaticTask_t xIdleTaskTCBs[configNUMBER_OF_CORES - 1];
+    static StackType_t uxIdleTaskStacks[configNUMBER_OF_CORES - 1][configMINIMAL_STACK_SIZE + 256];
+
+    *ppxIdleTaskTCBBuffer = &xIdleTaskTCBs[xPassiveIdleTaskIndex];
+    *ppxIdleTaskStackBuffer = uxIdleTaskStacks[xPassiveIdleTaskIndex];
+    *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE + 256;
+}
+#endif
 
 // /* configSUPPORT_STATIC_ALLOCATION and configUSE_TIMERS are both set to 1, so the
 // application must provide an implementation of vApplicationGetTimerTaskMemory()

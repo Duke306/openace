@@ -29,6 +29,24 @@ public:
     {
         gulp.setRef(cobsBuffer);
         etl::vector<GATAS::AircraftPositionInfo, GATAS::IngressAircraftPositionsMsg::MAX_POSITIONS> positionMessages;
+        auto addPosition = [&](const GATAS::AircraftPositionInfo &position)
+        {
+
+#if GATAS_DEBUG == 1
+            if (position.dataSource != GATAS::DataSource::ADSB && position.dataSource != GATAS::DataSource::MLAT)
+            {
+                GATAS_WARN("CobsStreamHandler: ignoring unexpected aircraft data source %u",
+                           static_cast<unsigned int>(position.dataSource));
+                return;
+            }
+#endif
+            if (positionMessages.full())
+            {
+                bus.receive(GATAS::IngressAircraftPositionsMsg(positionMessages));
+                positionMessages.clear();
+            }
+            positionMessages.push_back(position);
+        };
 
         etl::span<uint8_t> data;
         bool cobsMessageProcessed = false;
@@ -45,11 +63,7 @@ public:
              */
             if (frameType == BinaryMessages::DataType::AIRCRAFT_POSITION_TYPE_V1) {
                 auto aircraftPosition = BinaryMessages::deserializeAircraftPositionV1(ownShipLat, ownShipLon, reader);
-                if (positionMessages.full()) {
-                    bus.receive(GATAS::IngressAircraftPositionsMsg(positionMessages));
-                    positionMessages.clear();
-                }
-                positionMessages.push_back(aircraftPosition);
+                addPosition(aircraftPosition);
             }
 
             if (frameType == BinaryMessages::DataType::AIRCRAFT_POSITION_TYPE_V2)
@@ -60,12 +74,7 @@ public:
                     GATAS_WARN("Ignoring binary V2 aircraft position with invalid timestamp");
                     continue;
                 }
-                if (positionMessages.full())
-                {
-                    bus.receive(GATAS::IngressAircraftPositionsMsg(positionMessages));
-                    positionMessages.clear();
-                }
-                positionMessages.push_back(aircraftPosition.value());
+                addPosition(aircraftPosition.value());
             }
 
             /**

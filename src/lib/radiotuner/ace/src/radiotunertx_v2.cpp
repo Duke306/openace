@@ -248,6 +248,12 @@ void RadioTunerTx::assignDataSources(const etl::span<GATAS::DataSourceConfig> &n
             {
                 for (const auto &entry : timing)
                 {
+                    if (dataSourceTxEvents.full())
+                    {
+                        GATAS_WARN("RadioTunerTx: TX schedule full, ignoring %s",
+                                   GATAS::toString(ds.dataSource));
+                        break;
+                    }
                     dataSourceTxEvents.emplace_back(DataSourceTxEvent{&entry, CoreUtils::timeUs32()});
                 }
             }
