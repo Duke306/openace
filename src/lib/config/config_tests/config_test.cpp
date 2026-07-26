@@ -169,6 +169,26 @@ TEST_CASE("Fully Configured", "[single-file]")
         REQUIRE(status["gatasId"].is<uint32_t>());
     }
 
+    SECTION("Persistent comparison survives store rewind")
+    {
+        REQUIRE(config.setData("{}", "/api/Config/SaveBr.json") == true);
+        REQUIRE(config.persistentMatchesVolatile());
+
+        // A restart resets both stores' runtime write positions, but their
+        // backing bytes remain present.
+        volatileStore.rewind();
+        permanentStore.rewind();
+        Config restartedConfig(bus, volatileStore, permanentStore, binaryStore, DEFAULT_GATAS_CONFIG);
+        REQUIRE(restartedConfig.postConstruct() == GATAS::PostConstruct::OK);
+
+        REQUIRE(volatileStore.writtenSize() > 0);
+        REQUIRE(permanentStore.writtenSize() == 0);
+        REQUIRE(restartedConfig.persistentMatchesVolatile());
+
+        pstore[0] ^= 0x01;
+        REQUIRE_FALSE(restartedConfig.persistentMatchesVolatile());
+    }
+
 #if GATAS_DEBUG == 1
     SECTION("Erase stored configuration")
     {

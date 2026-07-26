@@ -167,7 +167,22 @@ public:
         ProtocolTxTimeSlot{ CountryRegulations::Zone::enum_type::ZONE2, NorthAmerica, PROTOCOL_OGN,           etl::span(NA_OGNT),               600, 1400, 5000, 6000, 15, 150},
         ProtocolTxTimeSlot{ CountryRegulations::Zone::enum_type::ZONE2, NorthAmerica, PROTOCOL_ADSL,          etl::span(NA_ADSL),               600, 1400, 5000, 6000, 15, 150}
     );
-    static constexpr size_t MAX_PROTOCOL_TX_TIMINGS = protocolTxTimimgs.size();
+    static constexpr size_t MAX_PROTOCOL_TX_TIMINGS = []() {
+        size_t maximum = 0;
+        for (const auto &candidate : protocolTxTimimgs)
+        {
+            size_t count = 0;
+            for (const auto &slot : protocolTxTimimgs)
+            {
+                if (slot.zone == candidate.zone)
+                {
+                    ++count;
+                }
+            }
+            maximum = count > maximum ? count : maximum;
+        }
+        return maximum;
+    }();
     // clang-format on
 
     static constexpr uint8_t validateProtocolTxTimings()

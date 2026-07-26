@@ -9,17 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added MLAT as a recognized aircraft data source with full and compact display names.
-- Added a combined UDP and Bluetooth output mode for GATAS Connect.
-- Added a debug warning when the GATAS Connect COBS buffer fills without producing a complete message.
+-
 
 ### Changed
 
-- Redesigned the SystemGUI with Pico CSS, responsive navigation, consistent forms and dialogs, clearer device status, and improved module monitoring layouts.
-- SystemGUI navigation now follows URL hashes so pages can be linked directly and restored after reload.
-- SystemGUI now enables saving modified RAM configuration to flash only when no aircraft or module configuration editor is open.
-- ADS-B cache value types are now separated from their ETL hash, equality, and ordering policies so invalid default cache entries are not required.
-- Combined GATAS Connect output now prefers UDP traffic while UDP responses are active and automatically restores Bluetooth requests when UDP becomes silent.
+-
 
 ### Deprecated
 
@@ -31,6 +25,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+-
+
+### Security
+
+
+## [v3.2.0] - 2026-07-26
+
+### Added
+
+- Added MLAT as a recognized aircraft data source with full and compact display names.
+- Added a combined UDP and Bluetooth output mode for GATAS Connect.
+
+### Changed
+
+- Redesigned the SystemGUI with Pico CSS, responsive navigation, consistent forms and dialogs, clearer device status, and improved module monitoring layouts.
+- SystemGUI navigation now follows URL hashes so pages can be linked directly and restored after reload.
+- SystemGUI now enables saving modified RAM configuration to flash only when no aircraft or module configuration editor is open.
+- Combined GATAS Connect output now prefers UDP traffic while UDP responses are active and automatically restores Bluetooth requests when UDP becomes silent.
+- Improved RP2040 startup memory allocation to reduce module load failures.
+
+### Deprecated
+
+-
+
+### Removed
+
+-
+
+### Fixed
+
+- Fixed RP2350 Bluetooth flash storage overlapping saved configuration, so settings survive restarts and firmware updates.
+- Fixed configuration updates so invalid or incomplete requests are rejected without partially changing settings, including creation of new aircraft entries.
+- Fixed fragmented and larger web configuration requests being truncated or partially applied.
+- Fixed GATAS Connect decoding of larger aircraft frames and variable-length callsigns, preventing corrupted traffic and incorrect data-source values.
+- Fixed radio transmit scheduling when all configured protocol timings are active.
+- Improved radio and aircraft-tracking queue handling for reliable processing across tasks.
+- Fixed SX1262 receive metadata being associated with the wrong tuned protocol and corrected transmit-power limiting.
 - Initialized GPS satellite-in-view counters, radio identifiers, and AirConnect client state before use.
 - Aircraft tracking now preserves fresh positions received directly over radio when matching ADS-B or MLAT updates arrive, until the radio-priority timeout expires.
 

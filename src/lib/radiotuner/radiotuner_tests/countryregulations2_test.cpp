@@ -37,6 +37,8 @@ TEST_CASE("getFrequency", "[single-file]")
 
 TEST_CASE("getSlot", "[single-file]")
 {
+    REQUIRE(CountryRegulations::MAX_PROTOCOL_TX_TIMINGS == 6);
+
     // PROTOCOL_ADSL uses DataSource::ADSLM and is in the TX table (M-band ADSL)
     REQUIRE(1 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE1, GATAS::DataSource::ADSLM).size());
     REQUIRE(2 == CountryRegulations::getProtocolTxTimings(CountryRegulations::Zone::ZONE1, GATAS::DataSource::FLARM)[0].radioConfig.pcId);

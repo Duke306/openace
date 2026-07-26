@@ -84,6 +84,10 @@ GATAS::PostConstruct Config::postConstruct()
     else
     {
         statistics.location = VOLATILE;
+        // The backing RAM survives a watchdog reboot, but the InMemoryStore
+        // write position does not. Re-serialize the validated document so the
+        // store's logical size is restored as well.
+        serializeToVolatile();
     }
 
     return GATAS::PostConstruct::OK;
@@ -214,6 +218,11 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
             else if (path.back() == "CompareBr")
             {
                 requestSucceeded = persistentMatchesVolatile();
+                if (requestSucceeded) {
+                    GATAS_INFO("persistent Matches Volatile");
+                } else {
+                    GATAS_WARN("persistent does not Match Volatile");
+                }
             }
 #endif
             // TODO: See if its possible to make something that these two are not in the config
@@ -315,7 +324,7 @@ bool Config::persistentMatchesVolatile() const
 {
     const auto volatileSize = volatileStore.writtenSize();
     return volatileSize > 0 &&
-           permanentStore.writtenSize() == volatileSize &&
+           volatileSize <= permanentStore.capacity() &&
            std::memcmp(volatileStore.data(), permanentStore.data(), volatileSize) == 0;
 }
 

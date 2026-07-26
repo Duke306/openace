@@ -84,6 +84,13 @@
 
 #define PICO_USE_MALLOC_MUTEX ( 1 )
 
+// RP2350's default Bluetooth flash banks overlap OpenAce's established
+// persistent configuration sector. Move both Bluetooth banks before the
+// OpenAce binary store while retaining the final sector for the E10 workaround.
+#if PICO_RP2350 && !defined(PICO_FLASH_BANK_STORAGE_OFFSET)
+#define PICO_FLASH_BANK_STORAGE_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE * 6u)
+#endif
+
 
 // Route UART messages over different pins by default
 #if GATAS_UART_OVER_USB
@@ -154,4 +161,3 @@
 #define GATAS_GDL90OVERUDP_MAX_PORTS  ( 2 )
 // Maximum custom clients
 #define GATAS_GDL90OVERUDP_MAX_CUSTOM_CLIENTS ( 2 )
-
