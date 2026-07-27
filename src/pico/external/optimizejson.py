@@ -3,9 +3,26 @@
 import json
 import argparse
 
+
 def read_json(file_path):
     with open(file_path, 'r') as file:
         return json.load(file)
+
+
+def merge_json(base, overlay):
+    """Recursively merge an overlay into a base JSON object."""
+    if not isinstance(base, dict) or not isinstance(overlay, dict):
+        return overlay
+
+    merged = base.copy()
+    for key, value in overlay.items():
+        if key in merged:
+            merged[key] = merge_json(merged[key], value)
+        else:
+            merged[key] = value
+
+    return merged
+
 
 def filter_json(data):
     """Recursively remove fields starting with an underscore from the JSON data."""
@@ -15,6 +32,7 @@ def filter_json(data):
         return [filter_json(item) for item in data]
     else:
         return data
+
 
 def write_cpp_header(data, file_path):
     with open(file_path, 'w') as file:
@@ -35,16 +53,22 @@ def write_cpp_header(data, file_path):
 
         file.write("0x00};\n")  # Null terminator
 
+
 def main():
     parser = argparse.ArgumentParser(description='Convert JSON file to a C++ constexpr array.')
     parser.add_argument('input_file', type=str, help='The input JSON file')
     parser.add_argument('output_file', type=str, help='The output C++ header file')
+    parser.add_argument('--overlay', type=str,
+                        help='Optional JSON file recursively merged over the input')
     args = parser.parse_args()
 
     data = read_json(args.input_file)
+    if args.overlay:
+        data = merge_json(data, read_json(args.overlay))
+
     filtered_data = filter_json(data)
-    print(json.dumps(filtered_data, separators=(',', ':')))
     write_cpp_header(filtered_data, args.output_file)
+
 
 if __name__ == '__main__':
     main()
