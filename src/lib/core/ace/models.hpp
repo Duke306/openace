@@ -209,6 +209,7 @@ namespace GATAS
         _RADIO = 5, // ANything beflore Radio can only be received over hardware
         _TRANSPROTOCOLS = 5, // Indicate maximum RADIO that can be received over low power (868MHZ etc..) used to limit array sizes
         ADSB = 5,
+        MLAT = 6,
         ADSLFLARM = 253,     // Combination of ADSL/FLARM, not an acutal protocol but needed for RX of multiple protocols
         ADSLOGN = 254,       // Combination of ADSL/OGN, not an acutal protocol but needed for RX of multiple protocols
         NONE = 255           // Note: Never use this! Unly used for stringToEnum(..)
@@ -254,7 +255,7 @@ namespace GATAS
         }
     };
 
-    
+
 
     namespace Config
     {
@@ -511,7 +512,7 @@ namespace GATAS
                                   uint8_t codingRate_)
             : config(config_), frequency(frequency_), hopFrequency(hopFrequency_), id(id_), codingRate(codingRate_) {}
 
-        RadioParameters() : config(nullptr), frequency(nullptr), hopFrequency(0), codingRate(8) {}
+        RadioParameters() : config(nullptr), frequency(nullptr), hopFrequency(0), id(0), codingRate(8) {}
     };
 
     /**
@@ -601,20 +602,63 @@ namespace GATAS
         uint32_t usSinceBoot; // Time since boot
     };
 
+    /**
+     * Transport destination for an outgoing GATAS Connect message.
+     * A message may target UDP, Bluetooth, both transports, or neither.
+     */
     struct GatasConnectOutput
     {
         enum enum_type : uint8_t
         {
             UDP = 0,
             Bluetooth = 1,
-            Broadcast = 2
+            UDPAndBluetooth = 2,
+            NOOP = 255,
         };
 
         ETL_DECLARE_ENUM_TYPE(GatasConnectOutput, uint8_t)
         ETL_ENUM_TYPE(UDP, "UDP")
         ETL_ENUM_TYPE(Bluetooth, "BlueTooth")
-        ETL_ENUM_TYPE(Broadcast, "Broadcast")
+        ETL_ENUM_TYPE(UDPAndBluetooth, "UDP + BlueTooth")
+        ETL_ENUM_TYPE(NOOP, "Noop")
         ETL_END_ENUM_TYPE
+
+    public:
+        /** Return true when the message should be delivered by the UDP transport. */
+        bool usesUDP() const
+        {
+            return value == UDP || value == UDPAndBluetooth;
+        }
+
+        /** Return true when the message should be delivered by the Bluetooth transport. */
+        bool usesBluetooth() const
+        {
+            return value == Bluetooth || value == UDPAndBluetooth;
+        }
+
+        /**
+         * Add Bluetooth to the destination without removing UDP.
+         * Configuration announcements use this so Companion can discover the device.
+         */
+        GatasConnectOutput withBluetooth() const
+        {
+            return value == UDP ? GatasConnectOutput(UDPAndBluetooth) : *this;
+        }
+
+        /**
+         * Prefer UDP for traffic requests when recent UDP traffic proves that path is active.
+         * Only the combined destination is reduced; UDP-only and Bluetooth-only remain unchanged.
+         */
+        GatasConnectOutput preferUDP(bool udpTrafficActive) const
+        {
+            return value == UDPAndBluetooth && udpTrafficActive ? GatasConnectOutput(UDP) : *this;
+        }
+    };
+
+    enum class GatasConnectTransport : uint8_t
+    {
+        UDP,
+        Bluetooth,
     };
 
 };

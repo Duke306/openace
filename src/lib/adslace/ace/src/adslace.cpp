@@ -195,6 +195,8 @@ void ADSLAce::on_receive(const GATAS::EgressAircraftPositionsMsg &msg)
         if (!traffic.full())
         {
             traffic.emplace_back(0x05, t.address, this->buildTrafficPayload(t));
+        } else {
+            GATAS_WARN("traffic queue full");
         }
     }
 

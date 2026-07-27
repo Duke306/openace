@@ -15,12 +15,7 @@ class GaTasModules extends El {
     });
 
     // Modules we want to hide because they where never tested, or don't provide any usefull information now
-    this.hide = [
-      "Idle", 
-      "AceSpi_0", 
-      "AceSpi_1", 
-      "SerialADSB"
-    ];
+    this.hide = ["Idle", "AceSpi_0", "AceSpi_1", "SerialADSB"];
 
     // All modules that can be monitored (Sometime we should automate this by reading this from the Microcontroller)
     this.monitorable = [
@@ -49,10 +44,24 @@ class GaTasModules extends El {
       "Bluetooth",
       "Webserver",
       "GatasConnect",
-      "GatasConnectUDP"
+      "GatasConnectUDP",
     ];
 
-    this.configurable = ["AircraftTracker", "L76B", "UbloxM8N", "WifiService", "ADSBDecoder", "GDLoverUDP", "Dump1090Client", "Bmp280", "Sx1262_0", "Sx1262_1", "Bluetooth", "GatasConnect", "GatasConnectUDP"];
+    this.configurable = [
+      "AircraftTracker",
+      "L76B",
+      "UbloxM8N",
+      "WifiService",
+      "ADSBDecoder",
+      "GDLoverUDP",
+      "Dump1090Client",
+      "Bmp280",
+      "Sx1262_0",
+      "Sx1262_1",
+      "Bluetooth",
+      "GatasConnect",
+      "GatasConnectUDP",
+    ];
 
     this.enablers = [
       "ADSBDecoder",
@@ -75,17 +84,25 @@ class GaTasModules extends El {
       "AirConnect",
       "GatasConnect",
       "GatasConnectUDP",
-      "GpsDecoder"
+      "GpsDecoder",
     ];
     this.info = {
       WifiService: (html) =>
-      html`Provides both Access Point and Client modes, allowing GaTas to connect to or create a network. It can connect to multiple networks based on availability.`,
+        html`Provides both Access Point and Client modes, allowing GaTas to connect to or create a network. It can connect to multiple networks based on
+        availability.`,
       AircraftTracker: (html) =>
-      html`Tracks all received aircraft and updates their positions when no new data is received. Sends a 1-second heartbeat with updated positions for each aircraft for a configurable duration.`,
+        html`Tracks all received aircraft and updates their positions when no new data is received. Sends a 1-second heartbeat with updated positions for each
+        aircraft for a configurable duration.`,
       Webserver: (html) => html`Hosts this page and facilitates configuration changes.`,
-      DataPort: (html) => html`Generates NMEA sentences compatible with DataPort, enabling EFBs like SkyDemon to receive traffic and ownship information via Bluetooth or AirConnect.`,
-      AirConnect: (html) => html`Sends all DataPort messages over TCP. Prefer Bluetooth if supported by your EFB. Listens on port 2000 and sends data upon connection. Note: ForeFlight may require proprietary port negotiation.`,
-      Bluetooth: (html) => html`Transmits all DataPort messages over Bluetooth, providing NMEA datastreams to external devices. EFBs like SkyDemon can connect to GaTas via Bluetooth.`,
+      DataPort: (html) =>
+        html`Generates NMEA sentences compatible with DataPort, enabling EFBs like SkyDemon to receive traffic and ownship information via Bluetooth or
+        AirConnect.`,
+      AirConnect: (html) =>
+        html`Sends all DataPort messages over TCP. Prefer Bluetooth if supported by your EFB. Listens on port 2000 and sends data upon connection. Note:
+        ForeFlight may require proprietary port negotiation.`,
+      Bluetooth: (html) =>
+        html`Transmits all DataPort messages over Bluetooth, providing NMEA datastreams to external devices. EFBs like SkyDemon can connect to GaTas via
+        Bluetooth.`,
       Gdl90Service: (html) => html`Generates GDL90 messages. Requires a module like GDLoverUDP to receive them on external devices.`,
       GDLoverUDP: (html) => html`Transmits GDL90 messages over UDP to external devices.`,
       GatasConnect: (html) => html`Generates COBS-framed GATAS Connect traffic and routes it to the configured transport.`,
@@ -93,8 +110,7 @@ class GaTasModules extends El {
       Flarm: (html) => html`Sends and receives Flarm protocol messages.`,
       Ogn1: (html) => html`Sends and receives OGN protocol messages.`,
       ADSL: (html) => html`Sends and receives ADS-L protocol messages.`,
-      ADSBDecoder: (html) =>
-      html`Receives ADS-B (extended squitter) messages. Requires an input module like SerialADSB or Dump1090Client.`,
+      ADSBDecoder: (html) => html`Receives ADS-B (extended squitter) messages. Requires an input module like SerialADSB or Dump1090Client.`,
       SerialADSB: (html) => html`Receives ADS-B messages from hardware like the GNS5892. Requires an ADSB Decoder to process messages.`,
       Dump1090Client: (html) => html`Receives ADS-B messages from Dump1090. Requires an ADSB Decoder to process messages.`,
       Bmp280: (html) => html`Reads atmospheric pressure using the Bmp280 hardware.`,
@@ -109,19 +125,52 @@ class GaTasModules extends El {
       Sx1262_1: (html) => html`Radio module 2. Sends and receives ADS-L, OGN, and Flarm protocols.`,
       RadioTunerRx: (html) => html`Manages timings for receiving multiple protocols over one or more radios (Flarm, OGN, and ADS-L).`,
       RadioTunerTx: (html) => html`Manages sending regular position messages over different protocols like Flarm, OGN, and ADS-L.`,
-      RxDataFrameQueue: (html) => html`Receives the RAW dataframes from a transceiver and prepares to send them to the various protocols. This will free up the transceiver to do other work.`,
+      RxDataFrameQueue: (html) =>
+        html`Receives the RAW dataframes from a transceiver and prepares to send them to the various protocols. This will free up the transceiver to do other
+        work.`,
     };
   }
 
   mounted() {
     this._running = false;
     this._newHwIdx = 0;
+    this._syncRouteFromLocation = () => {
+      const [page, view, encodedModule] = window.location.hash.slice(1).split("/");
+      if (page !== "modules") {
+        store.state.configurationEditorOpen = false;
+        return;
+      }
+
+      const module = encodedModule ? decodeURIComponent(encodedModule) : "";
+      if (view === "monitor" && this.monitorable.includes(module)) {
+        this.state.selectedModule = module;
+        this.state.whatToShow = "monitor";
+      } else if (view === "configure" && this.configurable.includes(module)) {
+        this.state.selectedModule = module;
+        this.state.whatToShow = "configure";
+      } else {
+        this.state.selectedModule = 0;
+        this.state.whatToShow = "modules";
+      }
+      store.state.configurationEditorOpen = this.state.whatToShow === "configure";
+    };
+    this._onNavigate = (event) => {
+      if (event.detail?.page === "modules") {
+        this._syncRouteFromLocation();
+      }
+    };
+    window.addEventListener("gatas:navigate", this._onNavigate);
+    window.addEventListener("hashchange", this._syncRouteFromLocation);
+    this._syncRouteFromLocation();
     this._fetchData();
   }
 
   unmounted() {
     this._running = false;
     clearTimeout(this.timer);
+    store.state.configurationEditorOpen = false;
+    window.removeEventListener("gatas:navigate", this._onNavigate);
+    window.removeEventListener("hashchange", this._syncRouteFromLocation);
   }
 
   _postConstructToString(value) {
@@ -175,13 +224,15 @@ class GaTasModules extends El {
   }
 
   _monitorModule(module) {
-    this.state.selectedModule = module;
-    this.state.whatToShow = "monitor";
+    window.location.hash = `modules/monitor/${encodeURIComponent(module)}`;
   }
 
   _configureModule(module) {
-    this.state.selectedModule = module;
-    this.state.whatToShow = "configure";
+    window.location.hash = `modules/configure/${encodeURIComponent(module)}`;
+  }
+
+  _showModules() {
+    window.location.hash = "modules";
   }
 
   _toggleModule(moduleName) {
@@ -200,52 +251,77 @@ class GaTasModules extends El {
   _showConfigureModule(html) {
     let module = this.state.selectedModule;
     return html`
-      <${module}-config key="${module}-config" close=${() => (this.state.whatToShow = "modules")}></${module}-config>
+      <${module}-config key="${module}-config" close=${() => this._showModules()}></${module}-config>
     `;
   }
 
   _showModuleStatus(html) {
     return html`
       <monitor-module key="config" selected=${this.state.selectedModule}></monitor-module>
-      <button class="btn" onclick=${() => (this.state.whatToShow = "modules")}>Close</button>
+      <button class="secondary" onclick=${() => this._showModules()}>Back to modules</button>
     `;
   }
 
   _row(html, item) {
-    if (item.poststatus == MODULE_NOT_AVAILABLE || this.hide.includes(item.name) ) {
+    if (item.poststatus == MODULE_NOT_AVAILABLE || this.hide.includes(item.name)) {
       return html``;
     } else {
       let monitorBtn =
         item.poststatus == 1 && this.monitorable.includes(item.name)
-          ? html`<button class="btn xs" onclick=${() => this._monitorModule(item.name)}>👀</button>`
+          ? html`<button
+              class="secondary compact-button"
+              title="Monitor ${item.name}"
+              aria-label="Monitor ${item.name}"
+              onclick=${() => this._monitorModule(item.name)}
+            >
+              ${html.raw(icon.monitor)}
+            </button>`
           : "";
       let configureBtn = this.configurable.includes(item.name)
-        ? html`<button class="btn xs" ${this.configurable.includes(item.name) ? "" : "disabled"} onclick=${() => this._configureModule(item.name)}>🛠️</button>`
+        ? html`<button
+            class="secondary compact-button"
+            title="Configure ${item.name}"
+            aria-label="Configure ${item.name}"
+            onclick=${() => this._configureModule(item.name)}
+          >
+            ⚙
+          </button>`
         : "";
 
       let toggleBtn = this.state.enabled.includes(item.name)
-        ? html`<button class="btn xs btn-success" onclick=${() => this._toggleModule(item.name)}>Ⓘ</button>`
-        : html`<button class="btn xs btn-error" onclick=${() => this._toggleModule(item.name)}>ⓧ</button>`;
+        ? html`<button
+            class="success compact-button"
+            title="Disable ${item.name}"
+            aria-label="Disable ${item.name}"
+            onclick=${() => this._toggleModule(item.name)}
+          >
+            ✓
+          </button>`
+        : html`<button
+            class="danger compact-button"
+            title="Enable ${item.name}"
+            aria-label="Enable ${item.name}"
+            onclick=${() => this._toggleModule(item.name)}
+          >
+            ×
+          </button>`;
 
       let enabledBtn = this.enablers.includes(item.name) ? toggleBtn : "";
 
       let info = "";
       if (this.info[item.name]) {
-        info = html` <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
+        info = html` <span class="icon-button" tabindex="0" aria-label="About ${item.name}">
           ${html.raw(icon.help)}
-          <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
-            ${this.info[item.name](html)}
-          </p>
-        </label>`;
+          <span class="app-tooltip" role="tooltip"> ${this.info[item.name](html)} </span>
+        </span>`;
       }
 
       return html` <tr>
-        <th style="width:25%" scope="row">${item.name} ${info}</th>
+        <th scope="row">${item.name} ${info}</th>
         <td>${this._postConstructToString(item.poststatus)}</td>
-        <td style="width:150px">${enabledBtn} ${configureBtn} ${monitorBtn}</td>
+        <td><div class="module-actions">${enabledBtn} ${configureBtn} ${monitorBtn}</div></td>
       </tr>`;
     }
-
   }
 
   _filteredItems() {
@@ -255,14 +331,19 @@ class GaTasModules extends El {
   _showModuleOverview(html) {
     let items = this._filteredItems();
     return html`
-
-      <div class="section">
-        <table>
-          <tbody>
-            ${items.map((item) => html` ${this._row(html, item)} `)}
-          </tbody>
-        </table>
-      </div>
+      <section class="page-section">
+        <header>
+          <h2>Modules</h2>
+          <p>Monitor, configure, and enable GATAS services.</p>
+        </header>
+        <div class="table-wrap">
+          <table class="data-table module-table">
+            <tbody>
+              ${items.map((item) => html` ${this._row(html, item)} `)}
+            </tbody>
+          </table>
+        </div>
+      </section>
     `;
   }
 

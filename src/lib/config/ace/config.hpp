@@ -139,6 +139,7 @@ private:
 
     void serializeToVolatile();
     void serializeToPersistent();
+    bool persistentMatchesVolatile() const;
 
 private:
     friend class message_router;

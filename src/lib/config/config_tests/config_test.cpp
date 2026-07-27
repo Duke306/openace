@@ -21,6 +21,24 @@ const uint8_t DEFAULT_GATAS_CONFIG[] = R"=(
 
 GATAS::ThreadSafeBus<50> bus;
 
+TEST_CASE("InMemoryStore capacity", "[single-file]")
+{
+    uint8_t data[4] = {};
+    InMemoryStore store{sizeof(data), data};
+    const uint8_t exactFit[] = {1, 2, 3, 4};
+
+    REQUIRE(store.capacity() == sizeof(data));
+    REQUIRE(store.writtenSize() == 0);
+    REQUIRE(store.write(exactFit, sizeof(exactFit)) == sizeof(exactFit));
+    REQUIRE(store.writtenSize() == sizeof(data));
+    REQUIRE(store.write(5) == 0);
+
+    store.rewind();
+    REQUIRE(store.writtenSize() == 0);
+    REQUIRE(store.write(exactFit, sizeof(exactFit) + 1) == 0);
+    REQUIRE(store.writtenSize() == 0);
+}
+
 TEST_CASE("Fully Configured", "[single-file]")
 {
     uint8_t vstore[4096] = {};
@@ -137,6 +155,99 @@ TEST_CASE("Fully Configured", "[single-file]")
         REQUIRE(12 == config.valueByPath(0, "ADSBDecoder", "filterAbove"));
         config.setValueBypath("/ADSBDecoder/filterAbove", 15);
         REQUIRE(15 == config.valueByPath(0, "ADSBDecoder", "filterAbove"));
+    }
+
+    SECTION("Config status includes gatasId")
+    {
+        etl::string<256> output;
+        etl::string_stream stream(output);
+
+        config.getData(stream, "/api/Config.json");
+
+        JsonDocument status;
+        REQUIRE(deserializeJson(status, output.c_str()) == DeserializationError::Ok);
+        REQUIRE(status["gatasId"].is<uint32_t>());
+    }
+
+    SECTION("Persistent comparison survives store rewind")
+    {
+        REQUIRE(config.setData("{}", "/api/Config/SaveBr.json") == true);
+        REQUIRE(config.persistentMatchesVolatile());
+
+        // A restart resets both stores' runtime write positions, but their
+        // backing bytes remain present.
+        volatileStore.rewind();
+        permanentStore.rewind();
+        Config restartedConfig(bus, volatileStore, permanentStore, binaryStore, DEFAULT_GATAS_CONFIG);
+        REQUIRE(restartedConfig.postConstruct() == GATAS::PostConstruct::OK);
+
+        REQUIRE(volatileStore.writtenSize() > 0);
+        REQUIRE(permanentStore.writtenSize() == 0);
+        REQUIRE(restartedConfig.persistentMatchesVolatile());
+
+        pstore[0] ^= 0x01;
+        REQUIRE_FALSE(restartedConfig.persistentMatchesVolatile());
+    }
+
+#if GATAS_DEBUG == 1
+    SECTION("Erase stored configuration")
+    {
+        REQUIRE(config.setData("{}", "/api/Config/EraseBr.json") == true);
+
+        for (auto value : pstore)
+        {
+            REQUIRE(value == 0xFF);
+        }
+
+        for (auto value : vstore)
+        {
+            REQUIRE(value == 0xFF);
+        }
+
+        REQUIRE(config.valueByPath(1, "signature", "") == 250801);
+    }
+#endif
+
+    SECTION("Invalid JSON does not partially overwrite an aircraft")
+    {
+        REQUIRE(config.valueByPath(0, "aircraft/XX-XXX", "address") == 12345678);
+        REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "category") == "Small");
+
+        const etl::string_view partialAircraft =
+            R"=({"callSign":"XX-XXX","address":109,"addressType":"FLARM","category":)=";
+        REQUIRE(config.setData(partialAircraft, "/api/Config/aircraft/XX-XXX.json") == false);
+
+        REQUIRE(config.valueByPath(0, "aircraft/XX-XXX", "address") == 12345678);
+        REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "addressType") == "OGN");
+        REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "category") == "Small");
+    }
+
+    SECTION("A complete aircraft update is applied atomically")
+    {
+        const etl::string_view aircraft =
+            R"=({"callSign":"XX-XXX","address":10994641,"addressType":"FLARM","category":"Surface Vehicle","privacy":0,"noTrack":0,"protocols":["OGN","FLARM_TX","ADSL","FANET"]})=";
+        REQUIRE(config.setData(aircraft, "/api/Config/aircraft/XX-XXX.json") == true);
+
+        REQUIRE(config.valueByPath(0, "aircraft/XX-XXX", "address") == 10994641);
+        REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "addressType") == "FLARM");
+        REQUIRE(config.strValueByPath("", "aircraft/XX-XXX", "category") == "Surface Vehicle");
+    }
+
+    SECTION("A new aircraft can be created atomically")
+    {
+        REQUIRE(config.setData(
+                    R"=({"callSign":"BROKEN","address":)=",
+                    "/api/Config/aircraft/BROKEN.json") == false);
+        REQUIRE(config.strValueByPath("missing", "aircraft/BROKEN", "callSign") == "missing");
+
+        const etl::string_view aircraft =
+            R"=({"callSign":"TEST-1","address":1193046,"addressType":"OGN","category":"Small","privacy":0,"noTrack":0,"protocols":[{"OGN":{"mode":"RX"}}]})=";
+        REQUIRE(config.setData(aircraft, "/api/Config/aircraft/TEST-1.json") == true);
+
+        REQUIRE(config.valueByPath(0, "aircraft/TEST-1", "address") == 1193046);
+        REQUIRE(config.strValueByPath("", "aircraft/TEST-1", "callSign") == "TEST-1");
+        REQUIRE(config.strValueByPath("", "aircraft/TEST-1", "addressType") == "OGN");
+        REQUIRE(config.strValueByPath("", "aircraft/TEST-1", "category") == "Small");
     }
 }
 

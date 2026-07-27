@@ -29,7 +29,7 @@ void GatasConnect::getData(etl::string_stream &stream, const etl::string_view pa
     (void)path;
     stream << "{";
     stream << "\"hasGpsFix:b\":" << hasGpsFix;
-    stream << ",\"output\":\"" << output.c_str() << "\"";
+    stream << ",\"output\":\"" << gatasConnectOutput.c_str() << "\"";
     stream << ",\"gdl90BridgeEnabled:b\":" << gdl90BridgeEnabled;
     stream << ",\"localConfigurationUpdateCnt\":" << localConfigurationUpdateCnt;
     stream << ",\"lastRadioTrafficUs\":" << lastRadioTrafficUs;
@@ -69,12 +69,24 @@ void GatasConnect::on_receive(const GATAS::IngressAircraftPositionMsg &msg)
 {
     if (msg.position.dataSource < GATAS::DataSource::_RADIO)
     {
-        lastRadioTrafficUs = CoreUtils::timeUs64();
+        if (auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()})
+        {
+            lastRadioTrafficUs = CoreUtils::timeUs64();
+        }
     }
 }
 
 void GatasConnect::on_receive(const GATAS::GatasConnectRx &msg)
 {
+    if (msg.source == GATAS::GatasConnectTransport::UDP)
+    {
+        if (auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()})
+        {
+            lastUdpTrafficUs = CoreUtils::timeUs32();
+            hasUdpTraffic = true;
+        }
+    }
+
     if (localConfigurationUpdateCnt)
     {
         localConfigurationUpdateCnt -= 1;
@@ -92,29 +104,29 @@ void GatasConnect::on_receive(const GATAS::GatasConnectRx &msg)
 
 void GatasConnect::on_receive(const GATAS::GdlMsg &msg)
 {
-    if (output != GATAS::GatasConnectOutput::Bluetooth || !gdl90BridgeEnabled || msg.msg.empty())
+    // Send GDL90 over Bluetooth when the bridge is enabled and the selected output includes Bluetooth.
+    if (gatasConnectOutput.usesBluetooth() && gdl90BridgeEnabled && !msg.msg.empty())
     {
-        return;
-    }
 
-    const size_t cobsSize = BinaryMessages::serializeGdl90FramedSizeV1(msg.msg.size());
-    auto &pool = BaseModule::getGlobalPool();
-    auto *cobsPayload = static_cast<uint8_t *>(pool.alloc(cobsSize));
-    if (cobsPayload == nullptr)
-    {
-        GATAS_WARN("GatasConnect: failed to allocate %u bytes for GDL90 bridge payload", static_cast<unsigned>(cobsSize));
-        return;
-    }
+        const size_t cobsSize = BinaryMessages::serializeGdl90FramedSizeV1(msg.msg.size());
+        auto &pool = BaseModule::getGlobalPool();
+        auto *cobsPayload = static_cast<uint8_t *>(pool.alloc(cobsSize));
+        if (cobsPayload == nullptr)
+        {
+            GATAS_WARN("GatasConnect: failed to allocate %u bytes for GDL90 bridge payload", static_cast<unsigned>(cobsSize));
+            return;
+        }
 
-    const size_t encodedSize = BinaryMessages::serializeGdl90V1(cobsPayload, cobsSize, etl::span<const uint8_t>(msg.msg.data(), msg.msg.size()));
-    if (encodedSize == 0)
-    {
-        GATAS_WARN("GatasConnect: failed to encode GDL90 bridge payload");
-        pool.release(cobsPayload);
-        return;
-    }
+        const size_t encodedSize = BinaryMessages::serializeGdl90V1(cobsPayload, cobsSize, etl::span<const uint8_t>(msg.msg.data(), msg.msg.size()));
+        if (encodedSize == 0)
+        {
+            GATAS_WARN("GatasConnect: failed to encode GDL90 bridge payload");
+            pool.release(cobsPayload);
+            return;
+        }
 
-    getBus().receive(GATAS::GatasConnectTx{pool, GATAS::GatasConnectOutput::Bluetooth, cobsPayload, encodedSize});
+        getBus().receive(GATAS::GatasConnectTx{pool, GATAS::GatasConnectOutput::Bluetooth, cobsPayload, encodedSize});
+    }
 }
 
 void GatasConnect::getConfig(const Configuration &config)
@@ -123,18 +135,9 @@ void GatasConnect::getConfig(const Configuration &config)
     pinCode = (pinCode == 0) ? 0 : etl::clamp(pinCode, static_cast<uint32_t>(1000), static_cast<uint32_t>(999999));
     gdl90BridgeEnabled = config.valueByPath(false, NAME, "enableGdl90Bridge");
 
-    auto outputValue = config.strValueByPath("udp", NAME, "output");
-    if (outputValue == "bluetooth")
-    {
-        output = GATAS::GatasConnectOutput::Bluetooth;
-    }
-    else
-    {
-        output = GATAS::GatasConnectOutput::UDP;
-    }
-
     auto gatasConfig = config.gaTasConfig();
     auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()};
+    hasUdpTraffic = false;
     localConfigurationUpdateCnt = LOCALCONFIGURATIONCHANGE_HOLD_BACK;
     icaoAddress = gatasConfig.conspicuity.icaoAddress;
     allIcaoAddresses = gatasConfig.allIcaoAddresses;
@@ -159,7 +162,7 @@ void GatasConnect::sendOwnshipPosition()
     bool hasGpsFixSnap = false;
     uint64_t lastRadioTrafficUsSnap = 0;
     GATAS::OwnshipPositionInfo ownshipSnap{};
-    GATAS::GatasConnectOutput outputSnap = GATAS::GatasConnectOutput::UDP;
+    GATAS::GatasConnectOutput outputSnap = GATAS::GatasConnectOutput::NOOP;
 
     if (auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()})
     {
@@ -167,7 +170,16 @@ void GatasConnect::sendOwnshipPosition()
         hasGpsFixSnap = hasGpsFix;
         lastRadioTrafficUsSnap = lastRadioTrafficUs;
         ownshipSnap = ownshipPosition;
-        outputSnap = output;
+        const uint32_t nowUs = CoreUtils::timeUs32();
+        // In UDP + Bluetooth mode, prefer UDP while it is receiving traffic;
+        // otherwise keep both transports active so Bluetooth provides fallback.
+        const bool udpTrafficActive = hasUdpTraffic && (nowUs - lastUdpTrafficUs) < UDP_TRAFFIC_TIMEOUT_US;
+        outputSnap = gatasConnectOutput.preferUDP(udpTrafficActive);
+    }
+
+    if (outputSnap == GATAS::GatasConnectOutput::NOOP)
+    {
+        return;
     }
 
     // Receive traffic for at least 60 seconds more
@@ -211,6 +223,7 @@ void GatasConnect::sendAircraftConfiguration()
     uint32_t gatasIpSnap = 0;
     uint32_t pinCodeSnap = 0;
     GATAS::WifiMode wifiModeSnap = GATAS::WifiMode::NC;
+    GATAS::GatasConnectOutput outputSnap = GATAS::GatasConnectOutput::NOOP;
     etl::vector<uint32_t, GATAS::MAX_AIRCRAFT_CONFIG> allIcaoAddressesSnap;
 
     if (auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()})
@@ -220,7 +233,13 @@ void GatasConnect::sendAircraftConfiguration()
         gatasIpSnap = gatasIp;
         pinCodeSnap = pinCode;
         wifiModeSnap = wifiMode;
+        outputSnap = gatasConnectOutput;
         allIcaoAddressesSnap = allIcaoAddresses;
+    }
+
+    if (outputSnap == GATAS::GatasConnectOutput::NOOP)
+    {
+        return;
     }
 
     const size_t configFrameSize = BinaryMessages::serializeAircraftConfigurationFramedSizeV2(allIcaoAddressesSnap.size());
@@ -240,7 +259,10 @@ void GatasConnect::sendAircraftConfiguration()
         return;
     }
 
-    getBus().receive(GATAS::GatasConnectTx{pool, GATAS::GatasConnectOutput::Broadcast, cobsPayload, written});
+    // Always include Bluetooth so the companion can discover the device IP
+    // and configuration, even when the normal output is UDP-only.
+    const GATAS::GatasConnectOutput configurationOutput = outputSnap.withBluetooth();
+    getBus().receive(GATAS::GatasConnectTx{pool, configurationOutput, cobsPayload, written});
 }
 
 void GatasConnect::requestTimerCallbackTrampoline(TimerHandle_t xTimer)

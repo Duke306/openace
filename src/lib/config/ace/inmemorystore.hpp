@@ -9,10 +9,11 @@
 class InMemoryStore : public ConfigStore
 {
     const uint16_t totalSize;
-    uint8_t * const store;
+    uint8_t *const store;
     size_t position;
+
 public:
-    InMemoryStore(uint16_t totalSize_, uint8_t *store_) : totalSize(totalSize_),  store(store_) , position(0){};
+    InMemoryStore(uint16_t totalSize_, uint8_t *store_) : totalSize(totalSize_), store(store_), position(0) {};
 
     void rewind()
     {
@@ -33,7 +34,7 @@ public:
 
     size_t write(const uint8_t *data, size_t size)
     {
-        if ((size + position) >= totalSize)
+        if (size > totalSize - position)
         {
             return 0;
         }
@@ -42,8 +43,25 @@ public:
         return size;
     }
 
+    size_t erase()
+    {
+        memset(store, 0xFF, totalSize);
+        position = 0;
+        return totalSize;
+    }
+
     const uint8_t *data() const
     {
         return (const uint8_t *)store;
+    }
+
+    size_t writtenSize() const
+    {
+        return position;
+    }
+
+    size_t capacity() const
+    {
+        return totalSize;
     }
 };

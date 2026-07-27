@@ -25,7 +25,7 @@ void RadioTunerTx::start()
     Configuration *configuration = static_cast<Configuration *>(BaseModule::moduleByName(*this, Configuration::NAME));
     if (configuration)
     {
-      on_receive(GATAS::ConfigUpdatedMsg(*configuration, Configuration::NAME));
+        on_receive(GATAS::ConfigUpdatedMsg(*configuration, Configuration::NAME));
     }
 };
 
@@ -48,14 +48,14 @@ void RadioTunerTx::getData(etl::string_stream &stream, const etl::string_view pa
         firstDs = false;
         const char *dsName = GATAS::toString(ds.slot->radioConfig.dataSource());
 
-#if GATAS_DEBUG == 1
-        uint16_t minT = ds.slot->txMinTime;
-        uint16_t maxT = ds.slot->txMaxTime;
-#else
+//#if GATAS_DEBUG == 1
+//         uint16_t minT = ds.slot->txMinTime;
+//         uint16_t maxT = ds.slot->txMaxTime;
+// #else
 
         uint16_t minT = isAirborne ? ds.slot->txMinTime : ds.slot->reducedTxMinTime;
         uint16_t maxT = isAirborne ? ds.slot->txMaxTime : ds.slot->reducedTxMaxTime;
-#endif
+// #endif
         stream << "{\"ds\":\"" << dsName << "\",\"min\":" << minT << ",\"max\":" << maxT << ",\"slots\":[";
         bool firstSlot = true;
         for (const auto &ts : ds.slot->timeSlots)
@@ -130,11 +130,11 @@ void RadioTunerTx::radioTuneTask()
                                 channelTiming->id},
                             dataSourceToRadio[static_cast<uint8_t>(ds.slot->radioConfig.dataSource())]});
                     statistics.taskActivity += 1;
-#if GATAS_DEBUG == 1
-                    auto delayMs = CountryRegulations::nextRandomTxTime(false, *ds.slot);
-#else
+// #if GATAS_DEBUG == 1
+                    // auto delayMs = CountryRegulations::nextRandomTxTime(false, *ds.slot);
+// #else
                     auto delayMs = CountryRegulations::nextRandomTxTime(!isAirborne, *ds.slot);
-#endif
+// #endif
                     auto currentTimeUs = CoreUtils::timeUs32();
                     if (delayMs != UINT32_MAX)
                     {
@@ -238,7 +238,8 @@ void RadioTunerTx::assignDataSources(const etl::span<GATAS::DataSourceConfig> &n
         for (auto &&ds : newDataSources)
         {
             // Ignore Datasources that are not for transmission
-            if (!ds.isTx()) {
+            if (!ds.isTx())
+            {
                 continue;
             }
             const auto timing = CountryRegulations::getProtocolTxTimings(currentZone, ds.dataSource);
@@ -247,6 +248,12 @@ void RadioTunerTx::assignDataSources(const etl::span<GATAS::DataSourceConfig> &n
             {
                 for (const auto &entry : timing)
                 {
+                    if (dataSourceTxEvents.full())
+                    {
+                        GATAS_WARN("RadioTunerTx: TX schedule full, ignoring %s",
+                                   GATAS::toString(ds.dataSource));
+                        break;
+                    }
                     dataSourceTxEvents.emplace_back(DataSourceTxEvent{&entry, CoreUtils::timeUs32()});
                 }
             }

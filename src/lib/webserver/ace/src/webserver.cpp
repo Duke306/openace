@@ -25,6 +25,7 @@ inline etl::map<uint32_t, uint32_t, 4> captiveCheck;
 
 /* Other consts */
 constexpr etl::string_view X_GATAS_METHOD_DELETE = "X-Method: DELETE"; // Custom HTTP header for method intent
+constexpr size_t MAX_POST_BODY_SIZE = 1024;
 
 static struct RequestContext_t
 {
@@ -35,8 +36,10 @@ static struct RequestContext_t
         POST,
         DELETE
     } method;
-    char buffer[256]; // If Json deserialisation fails, check if the JSON send is not bigger than this value
+    char buffer[MAX_POST_BODY_SIZE];
     size_t bufferPosition;
+    size_t expectedContentLength;
+    bool failed;
 } requestContext;
 
 /**
@@ -48,35 +51,38 @@ err_t httpd_post_begin(void *connection, const char *uri, const char *http_reque
                        u16_t response_uri_len, u8_t *post_auto_wnd)
 {
     LWIP_UNUSED_ARG(http_request_len);
-    LWIP_UNUSED_ARG(content_len);
-    LWIP_UNUSED_ARG(response_uri);
-    LWIP_UNUSED_ARG(response_uri_len);
     etl::string_view sv_uri(uri);
     etl::string_view sv_http_request(http_request);
-    if (sv_uri.starts_with("/api/"))
-    {
-        if (requestContext.connection == nullptr)
-        {
-            *post_auto_wnd = 1; // Must be set to 1
-            requestContext =
-                {
-                    .connection = connection,
-                    .uri = uri,
-                    .method = RequestContext_t::POST,
-                    .buffer = {},
-                    .bufferPosition = 0};
 
-            // LWiP doesn't handle DELETE requests, so the Frontend must add this as a header to indicate a DELETE request within a POST
-            if (sv_http_request.find(X_GATAS_METHOD_DELETE) != etl::string_view::npos)
-            {
-                requestContext.method = RequestContext_t::DELETE;
-            }
-        }
-        else
-        {
-            return ERR_USE; // Only one POST at a time
-        }
+    if (!sv_uri.starts_with("/api/"))
+    {
+        snprintf(response_uri, response_uri_len, "/error.json");
+        return ERR_ARG;
     }
+
+    if (requestContext.connection != nullptr)
+    {
+        snprintf(response_uri, response_uri_len, "/error.json");
+        return ERR_USE; // Only one POST at a time
+    }
+
+    *post_auto_wnd = 1; // Must be set to 1
+    requestContext =
+        {
+            .connection = connection,
+            .uri = uri,
+            .method = RequestContext_t::POST,
+            .buffer = {},
+            .bufferPosition = 0,
+            .expectedContentLength = content_len > 0 ? static_cast<size_t>(content_len) : 0,
+            .failed = content_len <= 0 || static_cast<size_t>(content_len) >= sizeof(requestContext.buffer)};
+
+    // LWiP doesn't handle DELETE requests, so the Frontend must add this as a header to indicate a DELETE request within a POST
+    if (sv_http_request.find(X_GATAS_METHOD_DELETE) != etl::string_view::npos)
+    {
+        requestContext.method = RequestContext_t::DELETE;
+    }
+
     return ERR_OK;
 }
 
@@ -84,25 +90,31 @@ err_t httpd_post_begin(void *connection, const char *uri, const char *http_reque
  * Copy received data into the requestContext buffer
  * Note: httpd_post_receive_data can be called multiple times for one requets
  *
- * Returns ERR_MEM when not enough space in the buffer
+ * A request which cannot be collected completely is consumed and marked as
+ * failed. Returning ERR_OK prevents lwIP from retrying a body that can never fit.
  */
 err_t httpd_post_receive_data(void *connection, struct pbuf *p)
 {
     if (requestContext.connection == connection)
     {
-        if ((requestContext.bufferPosition + p->len + 1) > sizeof(requestContext.buffer))
+        const size_t receivedLength = p->tot_len;
+        if (requestContext.failed ||
+            receivedLength > (sizeof(requestContext.buffer) - requestContext.bufferPosition - 1))
         {
-            return ERR_MEM; // Not enough space
+            requestContext.failed = true;
         }
-        auto copied = pbuf_copy_partial(p, requestContext.buffer + requestContext.bufferPosition, p->len, 0);
-        if (copied != p->len)
+        else
         {
-            requestContext.bufferPosition = 0;
-            requestContext.buffer[0] = '\0';
-            return ERR_BUF;
+            auto copied = pbuf_copy_partial(p, requestContext.buffer + requestContext.bufferPosition, receivedLength, 0);
+            if (copied != receivedLength)
+            {
+                requestContext.failed = true;
+            }
+            else
+            {
+                requestContext.bufferPosition += receivedLength;
+            }
         }
-
-        requestContext.bufferPosition += p->len;
     }
     pbuf_free(p);
     return ERR_OK;
@@ -113,36 +125,37 @@ err_t httpd_post_receive_data(void *connection, struct pbuf *p)
  */
 void httpd_post_finished(void *connection, char *response_uri, u16_t response_uri_len)
 {
+    bool requestSucceeded = false;
+
     if (requestContext.connection != connection)
     {
-        requestContext.connection = nullptr;
+        snprintf(response_uri, response_uri_len, "/error.json");
         return;
     }
 
     auto path = CoreUtils::parsePath(requestContext.uri);
-    if (path.size() < 3)
+    if (!requestContext.failed && path.size() >= 3)
     {
-        return;
+        // Lookup can be cached externally if stable.
+        auto *configModule = static_cast<Configuration *>(BaseModule::moduleByName(*webserver, path[1]));
+
+        if (configModule)
+        {
+            if (requestContext.method == RequestContext_t::POST &&
+                requestContext.bufferPosition == requestContext.expectedContentLength)
+            {
+                // Null terminate the buffer, httpd_post_receive_data ensures there is room.
+                requestContext.buffer[requestContext.bufferPosition] = '\0';
+                requestSucceeded = configModule->setData(requestContext.buffer, requestContext.uri);
+            }
+            else if (requestContext.method == RequestContext_t::DELETE)
+            {
+                requestSucceeded = configModule->deleteData(requestContext.uri);
+            }
+        }
     }
 
-    // Lookup can be cached externally if stable.
-    auto *configModule = static_cast<Configuration *>(BaseModule::moduleByName(*webserver, path[1]));
-
-    if (configModule)
-    {
-        if (requestContext.method == RequestContext_t::POST && requestContext.bufferPosition > 0)
-        {
-            // Null terminate the buffer, httpd_post_receive_data ensures there is room
-            requestContext.buffer[requestContext.bufferPosition] = '\0';
-            configModule->setData(requestContext.buffer, requestContext.uri);
-        }
-        else if (requestContext.method == RequestContext_t::DELETE)
-        {
-            configModule->deleteData(requestContext.uri);
-        }
-    }
-
-    snprintf(response_uri, response_uri_len, "/ok.json");
+    snprintf(response_uri, response_uri_len, requestSucceeded ? "/ok.json" : "/error.json");
     requestContext.connection = nullptr;
 }
 

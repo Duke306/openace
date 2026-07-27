@@ -18,8 +18,15 @@ public:
 
     /**
      * Write data to the datastore from a buffer.
-    */
+     */
     virtual size_t write(const uint8_t *buffer, size_t length) = 0;
+
+    /**
+     * Erase the complete datastore.
+     *
+     * Returns the number of bytes erased, or zero when the erase failed.
+     */
+    virtual size_t erase() = 0;
 
     /**
      * Get's a pointer to the datastore
@@ -27,5 +34,15 @@ public:
      * as it's assumed flash is always readble and is located within the same flash as
     */
     virtual const uint8_t* data() const = 0;
+
+    /**
+     * Gets the number of bytes written since the store was last rewound.
+     */
+    virtual size_t writtenSize() const = 0;
+
+    /**
+     * Gets the maximum number of bytes that can be stored.
+     */
+    virtual size_t capacity() const = 0;
 
 };

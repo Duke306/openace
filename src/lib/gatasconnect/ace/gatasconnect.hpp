@@ -28,12 +28,16 @@ class GatasConnect : public BaseModule, public etl::message_router<GatasConnect,
     friend class message_router;
 
     static constexpr uint8_t LOCALCONFIGURATIONCHANGE_HOLD_BACK = 5;
+    static constexpr uint32_t UDP_TRAFFIC_TIMEOUT_US = 5'000'000;
 
     bool hasGpsFix = false;
     uint64_t lastRadioTrafficUs = 0;
     uint8_t localConfigurationUpdateCnt = 0;
     TimerHandle_t requestTimer = nullptr;
-    GATAS::GatasConnectOutput output = GATAS::GatasConnectOutput::UDP;
+    const GATAS::GatasConnectOutput gatasConnectOutput = GATAS::GatasConnectOutput::UDPAndBluetooth;
+    uint32_t lastUdpTrafficUs = 0;
+    bool hasUdpTraffic = false;
+    // GDL90 over BlueTooth. Needs gatas companion
     bool gdl90BridgeEnabled = false;
 
     uint32_t icaoAddress = 0;

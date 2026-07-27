@@ -103,9 +103,7 @@ bool GatasConnectUDP::resolveIP()
 
 void GatasConnectUDP::on_receive(const GATAS::GatasConnectTx &msg)
 {
-    // Note: Not passing broadcast messages here to reduce traffic over mobile connection
-    //       this was a choice, not a bug
-    if (msg.output != GATAS::GatasConnectOutput::UDP)
+    if (!msg.output.usesUDP())
     {
         return;
     }
@@ -200,5 +198,5 @@ void GatasConnectUDP::receiveUdpMessage(void *arg, struct udp_pcb *pcb,
     taskCtx->statistics.bytesReceived += pbuf->tot_len;
     taskCtx->statistics.pkgReceived += 1;
     taskCtx->statistics.hasConnection = true;
-    taskCtx->getBus().receive(GATAS::GatasConnectRx(BaseModule::getGlobalPool(), copy, pbuf->tot_len));
+    taskCtx->getBus().receive(GATAS::GatasConnectRx(BaseModule::getGlobalPool(), GATAS::GatasConnectTransport::UDP, copy, pbuf->tot_len));
 }

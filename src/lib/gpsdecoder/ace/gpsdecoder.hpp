@@ -31,8 +31,6 @@ class GpsDecoder : public BaseModule, public etl::message_router<GpsDecoder, GAT
         uint32_t startTime = CoreUtils::timeS32();
     } statistics;
 
-//    float velocityNorth = 0;
-//    float velocityEast = 0;
     RatePerSecond altitudeGeoid{GATAS_EMAFLOAT_K_FACTOR_2PS, 2}; // Field 9
     float geoidSeparation = 0;                                   // Field 11
     float groundSpeed = 0;
@@ -49,10 +47,10 @@ class GpsDecoder : public BaseModule, public etl::message_router<GpsDecoder, GAT
     // 6: INS Dead reckoning
     struct SatViewStats
     {
-        uint8_t gps;
-        uint8_t glo;
-        uint8_t gal;
-        uint8_t bds;
+        uint8_t gps = 0;
+        uint8_t glo = 0;
+        uint8_t gal = 0;
+        uint8_t bds = 0;
     } satViewStats;
 
     uint8_t satsUsedForFix;

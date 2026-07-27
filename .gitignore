@@ -31,4 +31,7 @@ package-lock.json
 **/.trunk/
 .cache/
 
-build_codex_*/
+build_codex*/
+Release_*/
+release_*/
+

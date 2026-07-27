@@ -19,7 +19,21 @@ class Session extends El {
   }
 
   _editAircraft(html) {
-    return html` <aircraft-config key="config" close=${() => (this.state.editAircraft = false)} selected="${this.state.aircraft}"> </aircraft-config> `;
+    return html` <aircraft-config key="config" close=${() => this._closeEditor()} selected="${this.state.aircraft}"> </aircraft-config> `;
+  }
+
+  unmounted() {
+    store.state.configurationEditorOpen = false;
+  }
+
+  _openEditor() {
+    this.state.editAircraft = true;
+    store.state.configurationEditorOpen = true;
+  }
+
+  _closeEditor() {
+    this.state.editAircraft = false;
+    store.state.configurationEditorOpen = false;
   }
 
   _aircraftUpdated(aircraftId) {
@@ -28,11 +42,11 @@ class Session extends El {
 
   _add() {
     this.state.aircraft = "";
-    this.state.editAircraft = true;
+    this._openEditor();
   }
   _edit() {
     this.state.aircraft = store.state.aircraftId;
-    this.state.editAircraft = true;
+    this._openEditor();
   }
 
   _deleteAircraft() {
@@ -52,39 +66,39 @@ class Session extends El {
       ${deleteDlg}
       <aircraft-session key="session" selected="${store.state.aircraftId}" changed=${this._aircraftUpdated}></aircraft-session>
 
-      <div class="section grid md-columns-3 lg-columns-3">
+      <div class="form-actions form-actions--3">
         <input
           type="submit"
-          class="btn"
+          class="secondary"
           value="Add ${store.state.numberOfAircrafts >= MAX_AIRCRAFT ? `(Max ${MAX_AIRCRAFT})` : ""}"
           onclick=${this._add}
           ${store.state.numberOfAircrafts >= MAX_AIRCRAFT ? "disabled" : ""}
         />
         <input
           type="submit"
-          class="btn"
+          class="secondary"
           value="Remove"
           onclick=${() => (this.state.deleteAircraftDlg = true)}
           ${store.state.numberOfAircrafts < 2 ? "disabled" : ""}
         />
-        <input type="submit" value="Modify" class="btn btn-primary" onclick=${this._edit} />
+        <input type="submit" value="Modify" onclick=${this._edit} />
       </div>
     `;
   }
 
   _deleteAircraftDlg(html) {
-    return html` <div id="large-modal" class="modal show">
-      <div class="modal-content rounded lg-mw">
-        <article class="accent-light shadow">
+    return html` <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="delete-aircraft-title">
+      <div class="app-modal__surface">
+        <article>
           <header>
-            <h4>Delete '${store.state.aircraftId}' ?</h4>
+            <h4 id="delete-aircraft-title">Delete '${store.state.aircraftId}'?</h4>
           </header>
-          <div class="overflow-auto">
+          <div class="app-modal__body">
             <p>Removal of <b>${store.state.aircraftId}</b> cannot be undone.<br />Are you sure you want to delete ${store.state.aircraftId} aircraft?</p>
           </div>
-          <footer class="px-2 jc-end">
-            <button type="button" class="btn btn-warning sm ml-1 md-ml-3" onclick=${this._deleteAircraft}>Yes</button>
-            <button type="button" class="btn btn-primary sm ml-1 md-ml-3" onclick=${() => (this.state.deleteAircraftDlg = false)}>No</button>
+          <footer class="app-modal__actions">
+            <button type="button" class="danger" onclick=${this._deleteAircraft}>Delete</button>
+            <button type="button" class="secondary" onclick=${() => (this.state.deleteAircraftDlg = false)}>Cancel</button>
           </footer>
         </article>
       </div>

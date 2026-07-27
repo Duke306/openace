@@ -186,3 +186,29 @@ TEST_CASE("Gulp: Small buffer setRef", "[Gulp]")
     print_buffer_hex(pkt.data(), pkt.size());
     REQUIRE(span_equal(etl::make_array<uint8_t>(3, 4), pkt));
 }
+
+TEST_CASE("Gulp: erase discards current stream and starts fresh", "[Gulp]")
+{
+    etl::vector<uint8_t, 8> partialBuffer;
+    Gulp gulp(partialBuffer, DelimiterBitmap::Null());
+
+    auto partialPacket = etl::make_array<uint8_t>(1, 2, 3);
+    etl::span<uint8_t> packet;
+    gulp.setRef(partialPacket);
+    REQUIRE_FALSE(gulp.pop_into(packet));
+    REQUIRE(gulp.hasPartial());
+
+    auto referencedPackets = etl::make_array<uint8_t>(4, 0, 5, 0);
+    gulp.setRef(referencedPackets);
+    gulp.erase();
+
+    REQUIRE_FALSE(gulp.hasPartial());
+    REQUIRE_FALSE(gulp.pop_into(packet));
+    REQUIRE(packet.empty());
+
+    auto freshPacket = etl::make_array<uint8_t>(6, 7, 0);
+    gulp.setRef(freshPacket);
+    REQUIRE(gulp.pop_into(packet));
+    REQUIRE(span_equal(etl::make_array<uint8_t>(6, 7), packet));
+    REQUIRE_FALSE(gulp.pop_into(packet));
+}

@@ -49,7 +49,6 @@
   "GatasConnect": {
     "_comment_pinCode": "A pincode to be use for connecting to GATAS Connect online services",
     "pinCode": "0",
-    "output": "udp",
     "enableGdl90Bridge": false
   },
   "GatasConnectUDP": {
@@ -84,7 +83,8 @@
       "disabled": false
     },
     "_comment_clients": "A list of Access Points GATAS will be trying to to connect to.",
-    "clients": []
+    "clients": [
+    ]
   },
   "AceSpi": {},
   "Bmp280": {

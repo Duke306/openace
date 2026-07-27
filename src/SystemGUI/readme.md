@@ -6,10 +6,10 @@ All files in the `SystemGUI/dist` directory are automatically packaged into `src
 
 ![GUI](doc/SystemGUI.gif)
 
-# Libraries and fromworks used
+# Libraries and frameworks used
 
-1. `@frameable/e` LitElement alike framework to create and use webcomponents [https://github.com/frameable/el](https://github.com/frameable/el)
-1. `@ggedde/spry-css` Minimalistic css framework for small footprints [https://ggedde.github.io/spry-css/](https://ggedde.github.io/spry-css/)
+1. `@frameable/el` LitElement-like framework to create and use web components [https://github.com/frameable/el](https://github.com/frameable/el)
+1. `@picocss/pico` Lightweight semantic CSS framework, compiled with only the modules used by GATAS [https://picocss.com](https://picocss.com)
 1. `just-validate` Form validation framework [https://just-validate.dev](https://just-validate.dev)
 
 # Quick Start for UI Development
@@ -33,6 +33,3 @@ All files in the `SystemGUI/dist` directory are automatically packaged into `src
 - `.parcelrcrelease` Release configuration using in the build process to compress using gzip
 - `package.json` npm package file
 - `src` Directory containing the project files with css and various components
-
-
-TODO: Update to npm install chota

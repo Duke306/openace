@@ -1,58 +1,72 @@
 import { El } from "@frameable/el";
 import store from "./store";
+import darkLogoUrl from "url:../img/generated/gatas-dark.webp";
 
 class Menu extends El {
-
-  mounted() {
-    this.menuToggle = this.$refs.menuToggle;
-  }
-
-  _closeMenu() {
-    this.menuToggle.click();
-  }
-
-  _setPage(page, close=true) {
+  _setPage(page) {
     store.state.page = page;
-    if (close) {
-      this._closeMenu();
+    if (window.location.hash !== `#${page}`) {
+      window.history.replaceState(null, "", `#${page}`);
     }
+    window.dispatchEvent(new CustomEvent("gatas:navigate", { detail: { page } }));
+    this.$update();
   }
 
   _saveBr() {
+    if (!store.state.configModified || store.state.configurationEditorOpen) {
+      return;
+    }
+
     store.storeInBRModuleData().then(() => {
       store.init();
     });
   }
 
   render(html) {
+    const saveDisabled = !store.state.configModified || store.state.configurationEditorOpen;
+    const navItem = (page, label) => html`
+      <li>
+        <a
+          href="#${page}"
+          data-page="${page}"
+          aria-current="${store.state.page === page ? "page" : "false"}"
+          onclick=${() => this._setPage(page)}
+        >${label}</a>
+      </li>
+    `;
+
     return html`
-      <div class="bg-light flex ai-center jc-between relative toolbar px-1">
-        <h5 class="flex-center">
-          <a href="#session" onclick=${() => this._setPage("session", false)}>GATAS :: ${store.state.aircraftId}</a>
-        </h5>
-        ${store.state.connected ? html`<div class="alert-success">Connected</div>` : html`<div class="alert-error">Disconnected</div>`}
-        <button class="btn xs ${store.state.configModified ? "btn-warning" : ""}" onclick=${() => this._saveBr()}>Flash Settings</button>
-        <div>
-          <label class="toggle btn btn-link p-0 btn-menu md-none" ref="menuToggle" >
-            <input type="checkbox" />
-          </label>
-          <div class="md-open">
-            <nav class="bg-light inset-right md-horizontal md-hoverable">
-              <ul>
-                <li>
-                  <a href="#modules" onclick=${() => this._setPage("modules")}>Modules</a>
-                </li>
-                <li>
-                  <a href="#status" onclick=${() => this._setPage("status")}>Status</a>
-                </li>
-                <li>
-                  <a href="#actions" onclick=${() => this._setPage("actions")}>Actions</a>
-                </li>
-              </ul>
-            </nav>
-          </div>
+      <header class="app-header">
+        <a class="app-brand" href="#session" aria-label="GATAS home" onclick=${() => this._setPage("session")}>
+          <picture class="app-brand-picture">
+            <img src="${darkLogoUrl}" alt="GATAS" width="320" height="80" />
+          </picture>
+        </a>
+
+        <nav class="app-nav" aria-label="Primary navigation">
+          <ul>
+            ${navItem("session", "Aircraft")}
+            ${navItem("modules", "Modules")}
+            ${navItem("status", "Status")}
+            ${navItem("actions", "Actions")}
+          </ul>
+        </nav>
+
+        <div class="header-actions">
+          <span
+            class="connection-status"
+            data-connected="${store.state.connected}"
+            title="${store.state.connected ? "Connected" : "Disconnected"}"
+          >${store.state.connected ? "Connected" : "Disconnected"}</span>
+          <button
+            type="button"
+            class="flash-button ${store.state.configModified ? "is-modified" : ""}"
+            title="${store.state.configurationEditorOpen ? "Finish editing before storing to flash" : "Store configuration to flash"}"
+            onclick=${() => this._saveBr()}
+            ${saveDisabled ? "disabled" : ""}
+          >Flash</button>
         </div>
-      </div>
+      </header>
     `;
   }
 }

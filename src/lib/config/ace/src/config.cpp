@@ -1,6 +1,8 @@
 
 #include "../config.hpp"
 
+#include <cstring>
+
 #include "hardware/watchdog.h"
 #include "pico/bootrom.h"
 #include "etl/string_utilities.h"
@@ -82,6 +84,10 @@ GATAS::PostConstruct Config::postConstruct()
     else
     {
         statistics.location = VOLATILE;
+        // The backing RAM survives a watchdog reboot, but the InMemoryStore
+        // write position does not. Re-serialize the validated document so the
+        // store's logical size is restored as well.
+        serializeToVolatile();
     }
 
     return GATAS::PostConstruct::OK;
@@ -149,16 +155,41 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
 {
     auto [idx, path] = getConfigPath(fullPath);
     bool dataMutated = false;
+    bool requestSucceeded = false;
+
+    auto applyUpdate = [&](auto &&destination)
+    {
+        auto error = deserializeJson(destination, data.cbegin(), data.size());
+        if (error == DeserializationError::Ok)
+        {
+            return true;
+        }
+
+        // deserializeJson() clears its destination before parsing and can leave
+        // a partial value on failure. The volatile store contains the last
+        // complete configuration, so restore it to keep failed updates atomic.
+        if (deserializeJson(doc, volatileStore.data()) != DeserializationError::Ok)
+        {
+            GATAS_WARN("Failed to restore configuration after invalid JSON");
+        }
+        return false;
+    };
 
     if (idx.has_value())
     {
-        // Set data by index
         auto src = configValueBypath<JsonVariant>(path);
         auto array = src.as<JsonArray>();
-        if (array)
+        if (array && idx.value() >= 0 && static_cast<size_t>(idx.value()) < array.size())
         {
-            deserializeJson(array[idx.value()], data.cbegin(), data.cend() - data.cbegin());
-            dataMutated = true;
+            if (applyUpdate(array[idx.value()]))
+            {
+                dataMutated = true;
+                requestSucceeded = true;
+            }
+        }
+        else
+        {
+            GATAS_WARN("Failed to mutate data");
         }
     }
     else
@@ -170,7 +201,30 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
                 doc["config"]["_dirty"] = false;
                 serializeToVolatile();
                 serializeToPersistent();
+                requestSucceeded = true;
             }
+#if GATAS_DEBUG == 1
+            // Added for automated testing. This endpoint is excluded from release firmware.
+            else if (path.back() == "EraseBr")
+            {
+                auto persistentBytesErased = permanentStore.erase();
+                volatileStore.erase();
+                if (persistentBytesErased > 0)
+                {
+                    statistics.persistentStoreSize = 0;
+                }
+                requestSucceeded = true;
+            }
+            else if (path.back() == "CompareBr")
+            {
+                requestSucceeded = persistentMatchesVolatile();
+                if (requestSucceeded) {
+                    GATAS_INFO("persistent Matches Volatile");
+                } else {
+                    GATAS_WARN("persistent does not Match Volatile");
+                }
+            }
+#endif
             // TODO: See if its possible to make something that these two are not in the config
             else if (path.back() == "Restart")
             {
@@ -191,29 +245,36 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
             }
             else
             {
-                // Test of key exists, if not, create an entry
-                auto src = configValueBypath<JsonVariant>(path);
-
-                if (src == nullptr)
+                auto destination = configValueBypath<JsonVariant>(path);
+                bool updateApplied = false;
+                if (destination != nullptr)
                 {
-                    // When key does not exist, create it firs at
-                    auto const key = path.back();
+                    updateApplied = applyUpdate(destination);
+                }
+                else
+                {
+                    const auto key = path.back();
                     path.pop_back();
-                    // TODO: Move check for epty path and return doc to configValueBypath
+
                     if (path.size() == 0)
                     {
-                        src = doc;
+                        updateApplied = applyUpdate(doc[const_cast<char *>(key.c_str())]);
                     }
                     else
                     {
-                        src = configValueBypath<JsonVariant>(path);
+                        auto parent = configValueBypath<JsonVariant>(path);
+                        if (parent != nullptr)
+                        {
+                            updateApplied = applyUpdate(parent[const_cast<char *>(key.c_str())]);
+                        }
                     }
-
-                    // Must add a non const ptr for ArduinoJson so a copy will be made instead of reference
-                    src = src[const_cast<char *>(key.c_str())].to<JsonObject>();
                 }
-                deserializeJson(src, data.cbegin(), data.size());
-                dataMutated = true;
+
+                if (updateApplied)
+                {
+                    dataMutated = true;
+                    requestSucceeded = true;
+                }
             }
         }
     }
@@ -235,7 +296,7 @@ bool Config::setData(const etl::string_view data, const etl::string_view fullPat
         }
     }
 
-    return dataMutated;
+    return requestSucceeded;
 }
 
 void Config::serializeToVolatile()
@@ -252,8 +313,19 @@ void Config::serializeToPersistent()
     // So for now we do this from volatileStore
 
     permanentStore.rewind();
-    permanentStore.write(volatileStore.data(), strlen((const char *)volatileStore.data()) + 1);
-    statistics.persistentStoreSize = strlen((char *)permanentStore.data()) + 1;
+    // Known limitation: persistence failures are not propagated to SaveBr yet.
+    // The store reports zero on failure, but the current API keeps its historic
+    // best-effort save behavior.
+    permanentStore.write(volatileStore.data(), volatileStore.writtenSize());
+    statistics.persistentStoreSize = volatileStore.writtenSize();
+}
+
+bool Config::persistentMatchesVolatile() const
+{
+    const auto volatileSize = volatileStore.writtenSize();
+    return volatileSize > 0 &&
+           volatileSize <= permanentStore.capacity() &&
+           std::memcmp(volatileStore.data(), permanentStore.data(), volatileSize) == 0;
 }
 
 bool Config::deleteData(const etl::string_view fullPath)

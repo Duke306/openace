@@ -16,7 +16,8 @@ class CobsStreamHandler
 private:
     etl::imessage_bus &bus;
     Configuration &config;
-    etl::vector<uint8_t, 32> gulpBuffer;
+    // gulpBuffer needs to be at least the size of one array of length ending with DelimiterBitmap
+    etl::vector<uint8_t, 64> gulpBuffer;
     Gulp gulp;
 
 public:
@@ -28,10 +29,31 @@ public:
     {
         gulp.setRef(cobsBuffer);
         etl::vector<GATAS::AircraftPositionInfo, GATAS::IngressAircraftPositionsMsg::MAX_POSITIONS> positionMessages;
+        auto addPosition = [&](const GATAS::AircraftPositionInfo &position)
+        {
+
+#if GATAS_DEBUG == 1
+            if (position.dataSource != GATAS::DataSource::ADSB && position.dataSource != GATAS::DataSource::MLAT)
+            {
+                GATAS_WARN("CobsStreamHandler: ignoring unexpected aircraft data source %u",
+                           static_cast<unsigned int>(position.dataSource));
+                return;
+            }
+#endif
+            if (positionMessages.full())
+            {
+                bus.receive(GATAS::IngressAircraftPositionsMsg(positionMessages));
+                positionMessages.clear();
+            }
+            positionMessages.push_back(position);
+        };
 
         etl::span<uint8_t> data;
+        bool cobsMessageProcessed = false;
+        (void) cobsMessageProcessed;
         while (gulp.pop_into(data))
         {
+            cobsMessageProcessed = true;
             decodeCOBS_inplace(data);
             uint8_t frameType = data[0];
             etl::bit_stream_reader reader(data, etl::endian::big);
@@ -41,11 +63,7 @@ public:
              */
             if (frameType == BinaryMessages::DataType::AIRCRAFT_POSITION_TYPE_V1) {
                 auto aircraftPosition = BinaryMessages::deserializeAircraftPositionV1(ownShipLat, ownShipLon, reader);
-                if (positionMessages.full()) {
-                    bus.receive(GATAS::IngressAircraftPositionsMsg(positionMessages));
-                    positionMessages.clear();
-                }
-                positionMessages.push_back(aircraftPosition);
+                addPosition(aircraftPosition);
             }
 
             if (frameType == BinaryMessages::DataType::AIRCRAFT_POSITION_TYPE_V2)
@@ -56,12 +74,7 @@ public:
                     GATAS_WARN("Ignoring binary V2 aircraft position with invalid timestamp");
                     continue;
                 }
-                if (positionMessages.full())
-                {
-                    bus.receive(GATAS::IngressAircraftPositionsMsg(positionMessages));
-                    positionMessages.clear();
-                }
-                positionMessages.push_back(aircraftPosition.value());
+                addPosition(aircraftPosition.value());
             }
 
             /**
@@ -97,6 +110,17 @@ public:
                 }
             }
         }
+
+        bool fullAndNothingProcessed = !cobsMessageProcessed && gulpBuffer.full();
+
+        // If we are full and nothing processed, there is a resobale chance that we won't ever process anything, so we need to start picking up again
+        // therefor we clear the buffers
+        if (fullAndNothingProcessed)
+        {
+            GATAS_WARN("CobsStreamHandler: Gulp buffer full without processing a COBS message");
+            gulp.erase();
+        }
+
 
         // Send the left over if any
         if (!positionMessages.empty())

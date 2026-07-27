@@ -64,20 +64,22 @@ namespace GATAS
             {DataSource::ADSLOGN, "ADSL OGN"},
             {DataSource::FANET, "Fanet"},
             {DataSource::ADSB, "ADSB"},
+            {DataSource::MLAT, "MLAT"},
             {DataSource::OGN, "OGN"},
             {DataSource::NONE, "NONE"}};
 
     constexpr Mapping<DataSource, const char *> dataSourceShortMappings[] =
         {
-            {DataSource::FLARM, "FL"},
-            {DataSource::ADSLM, "AD"},
-            {DataSource::ADSLO_HDR, "AH"},
-            {DataSource::ADSLFLARM, "AF"},
-            {DataSource::ADSLOGN, "AO"},
-            {DataSource::FANET, "FA"},
-            {DataSource::ADSB, "AB"},
-            {DataSource::OGN, "OG"},
-            {DataSource::NONE, "NO"}};
+            {DataSource::FLARM, "fl"},
+            {DataSource::ADSLM, "am"},
+            {DataSource::ADSLO_HDR, "ah"},
+            {DataSource::FANET, "fa"},
+            {DataSource::ADSB, "ab"},
+            {DataSource::MLAT, "ml"},
+            {DataSource::OGN, "og"},
+            {DataSource::ADSLFLARM, "af"},
+            {DataSource::ADSLOGN, "ao"},
+            {DataSource::NONE, "un"}};
 
     const char *dataSourceIntToString(uint8_t ds)
     {
@@ -89,7 +91,7 @@ namespace GATAS
     }
     const char *toShortString(DataSource ds)
     {
-        return enumToString(dataSourceShortMappings, ds, "UN");
+        return enumToString(dataSourceShortMappings, ds, "un");
     }
     DataSource stringToDataSource(const char *str)
     {

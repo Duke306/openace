@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenAce Device Testing"
+  short_description: "Run safe OpenAce hardware and UI regressions"
+  default_prompt: "Use $openace-device-testing to test an OpenAce device and restore its starting configuration."

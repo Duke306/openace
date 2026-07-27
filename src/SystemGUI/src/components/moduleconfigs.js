@@ -26,10 +26,10 @@ class ModuleConfig extends El {
 
   buttonArray(html) {
     return html` <!-- Buttons -->
-      <div class="section grid md-columns-3 lg-columns-3">
-        <input class="btn" value="Cancel" onclick=${this.close} />
-        <input class="btn" value="Reset" onclick=${this._resetForm} />
-        <input class="btn btn-primary" type="submit" value="Save" />
+      <div class="form-actions form-actions--3">
+        <input class="secondary" type="button" value="Cancel" onclick=${this.close} />
+        <input class="secondary" type="button" value="Reset" onclick=${this._resetForm} />
+        <input class="primary-action" type="submit" value="Save" />
       </div>`;
   }
 }
@@ -75,67 +75,69 @@ class AircraftTrackerConfig extends ModuleConfig {
       </p>
       <form ref="form" autocomplete="off" novalidate="novalidate">
 
-      <div class="section">
-          <label for="ddbEnabled">
-            <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
-              DDB Enabled ${html.raw(icon.help)}
-              <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
-                Enable to lookup the Aircrafts callsign from based on hex code from <a href="https://ddb.glidernet.org" target="_blank" rel="noopener noreferrer">DDB<a> connected clients that use GDL90 or NMEA
-              </p>
-            </label>:
-            <br />
-            <input type="checkbox" id="ddbEnabled" ref="ddbEnabled" placeholder="1" />
-          </label>
-          <div class="alert alert-warning">
-            <svg class="mr-2" style="width: 24px; height: 24px;" viewBox="0 0 24 24"><path fill="currentColor" d="M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z"></path></svg>
+      <div class="page-section">
+          <div class="config-field-heading">
+            <label for="ddbEnabled">DDB Enabled</label>
+            <span class="help-label" tabindex="0" aria-label="About DDB Enabled">
+              ${html.raw(icon.help)}
+              <span class="app-tooltip" role="tooltip">
+                Look up aircraft callsigns by hex code using the
+                <a href="https://ddb.glidernet.org" target="_blank" rel="noopener noreferrer">DDB</a>
+                for connected GDL90 or NMEA clients.
+              </span>
+            </span>
+          </div>
+          <input type="checkbox" id="ddbEnabled" ref="ddbEnabled" />
+          <div class="notice notice--warning">
+            <svg class="icon-spacing" style="width: 24px; height: 24px;" viewBox="0 0 24 24"><path fill="currentColor" d="M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z"></path></svg>
             Please note that the DDB is created and maintained by aviation enthusiasts and is in no way an official registry.
             Because of this, you may encounter aircraft whose callsign differs from what ATC uses.
           </div>
         </div>
 
-        <div class="section">
-          <label for="pathPredictionEnabled">
-            <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
-              Path prediction ${html.raw(icon.help)}
-              <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
+        <div class="page-section">
+          <div class="config-field-heading">
+            <label for="pathPredictionEnabled">Path prediction</label>
+            <span class="help-label" tabindex="0" aria-label="About Path prediction">
+              ${html.raw(icon.help)}
+              <span class="app-tooltip" role="tooltip">
                 Extrapolate short gaps between received aircraft positions before forwarding tracker updates to connected clients.
-              </p>
-            </label>:
-            <br />
-            <input type="checkbox" id="pathPredictionEnabled" ref="pathPredictionEnabled" placeholder="1" />
-          </label>
-          <div class="alert alert-warning">
-            <svg class="mr-2" style="width: 24px; height: 24px;" viewBox="0 0 24 24"><path fill="currentColor" d="M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z"></path></svg>
-              EXPERIMENTAL! <br>
-              Path prediction estimates missing positions and can also correct positions received late, such as through mobile ADS-B connections. Based on the time the data was received, the system predicts the aircraft's current location while taking airspeed, vertical velocity, and turn rate into account.
+                Path prediction estimates missing positions and can correct positions received late, such as through mobile ADS-B connections. It predicts the aircraft's current location using airspeed, vertical velocity, and turn rate.
+              </span>
+            </span>
+            <span class="experimental-badge" aria-label="Experimental feature">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3Zm0 5.2 4.9 8.8H7.1L12 8.2Zm-1 2.8v3.2h2V11h-2Zm0 4.2v2h2v-2h-2Z" fill="currentColor"></path></svg>
+              Experimental
+            </span>
           </div>
+          <input type="checkbox" id="pathPredictionEnabled" ref="pathPredictionEnabled" />
 
         </div>
 
-        <div class="section">
-          <label for="prefixEnabled">
-            <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
-              Add Data Source Prefix ${html.raw(icon.help)}
-              <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
+        <div class="page-section">
+          <div class="config-field-heading">
+            <label for="prefixEnabled">Add Data Source Prefix</label>
+            <span class="help-label" tabindex="0" aria-label="About Add Data Source Prefix">
+              ${html.raw(icon.help)}
+              <span class="app-tooltip" role="tooltip">
                 Prefix tracked callsigns with the two-letter datasource code, for example <code>OG</code> or <code>FL</code>, so connected EFBs can show how the traffic was received.
-              </p>
-            </label>:
-            <br />
-            <input type="checkbox" id="prefixEnabled" ref="prefixEnabled" placeholder="1" />
-          </label>
+              </span>
+            </span>
+          </div>
+          <input type="checkbox" id="prefixEnabled" ref="prefixEnabled" />
         </div>
 
-        <div class="section">
-          <label for="showSquawk">
-            <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
-              Show Squawk ${html.raw(icon.help)}
-              <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
+        <div class="page-section">
+          <div class="config-field-heading">
+            <label for="showSquawk">Show Squawk</label>
+            <span class="help-label" tabindex="0" aria-label="About Show Squawk">
+              ${html.raw(icon.help)}
+              <span class="app-tooltip" role="tooltip">
                 Show a known squawk code instead of the aircraft callsign.
-              </p>
-            </label>:
-            <br />
-            <input type="checkbox" id="showSquawk" ref="showSquawk" placeholder="1" />
-          </label>
+              </span>
+            </span>
+          </div>
+          <input type="checkbox" id="showSquawk" ref="showSquawk" />
         </div>
         <br />
         ${this.buttonArray(html)}
@@ -233,7 +235,7 @@ class WifiServiceConfig extends ModuleConfig {
          <hr>
          <h5>Client Configuration</h5>
         <!--
-         <div class="grid">
+         <div class="app-grid">
           <label for="apDisabled">
             <input type="checkbox" id="" id="apDisabled" ref="apDisabled" placeholder="1" />
             When enabled, GATAS will only attempt to an Access point and will not create anAccess Point by itself. This setting is recommended when using GATAS Connect.
@@ -241,7 +243,7 @@ class WifiServiceConfig extends ModuleConfig {
         </div> -->
         <br />
 
-        <div class="alert alert-warning">
+        <div class="notice notice--warning">
             <div>
             To make this work with a phone's hotspot:<br/>
               <ul>
@@ -253,11 +255,11 @@ class WifiServiceConfig extends ModuleConfig {
         </div>
 
 
-         <div class="grid md-columns-2 lg-columns-2">
+         <div class="app-grid app-grid--2">
             ${this.clientsIds.map(
       (id) => html`
-                <div class="row g-0">
-                  <div class="col-10">
+                <div class="split-row endpoint-row">
+                  <div class="split-main">
                     <label for="ssid">
                       SSID ${id}:
                       <input type="text" id="apssid_${id}" ref="apssid_${id}" placeholder="SSID" } />
@@ -275,8 +277,8 @@ class WifiServiceConfig extends ModuleConfig {
           <h5>Access Point configuration</h5>
         <p>Access point configuration. This AP will be created if GATAS could not connect to any other Access Points.
         </p>
-        <div class="row g-0">
-          <div class="col-10">
+        <div class="split-row">
+          <div class="split-main">
             <label for="SSID">
               SSID:
               <input type="text" id="apssid" ref="apssid" placeholder="SSID" />
@@ -288,7 +290,7 @@ class WifiServiceConfig extends ModuleConfig {
           </div>
       </div>
       <br />
-      <div class="alert alert-warning">
+      <div class="notice notice--warning">
         This access point does not support routing to the internet.
       </div>
 
@@ -346,7 +348,7 @@ class ADSBDecoderConfig extends ModuleConfig {
         This module processes the incoming ADS-B received over TCP, Serial or other methods. This module must be enabled next to a module that receives data.
       </p>
       <form ref="form" autocomplete="off" novalidate="novalidate">
-        <div class="section grid md-columns-2 lg-columns-2">
+        <div class="page-section app-grid app-grid--2">
           <label for="filterAbove">
             filterAbove:
             <select ref="filterAbove" required>
@@ -363,7 +365,7 @@ class ADSBDecoderConfig extends ModuleConfig {
           </label>
         </div>
         <br />
-        <div class="alert alert-warning">
+        <div class="notice notice--warning">
           ${html.raw(icon.warning)} Increasing the filter below and filter above settings will increase the load on the system, thus degrading the system's
           performance. Don't set the value too high/low.
         </div>
@@ -424,13 +426,13 @@ class Bmp280Config extends ModuleConfig {
       <p>This module reads the Bmp280 pressure sensor and makes the data available to other modules that require them.</p>
 
       <form ref="form" autocomplete="off" novalidate="novalidate">
-        <div class="section grid md-columns-2 lg-columns-2">
+        <div class="page-section app-grid app-grid--2">
           <label for="compensation">
             Compensation:
             <input type="text" id="compensation" ref="compensation" placeholder="0" } />
           </label>
         </div>
-        <div class="alert alert-primary">Compensation allows you to add an offset to the measured pressure for more accurate readings.</div>
+        <div class="notice">Compensation allows you to add an offset to the measured pressure for more accurate readings.</div>
 
         ${this.buttonArray(html)}
       </form>
@@ -537,11 +539,11 @@ class GDLoverUDPConfig extends ModuleConfig {
       </p>
 
       <form ref="form" autocomplete="off" novalidate="novalidate">
-        <div class="section">
+        <div class="page-section">
           Up to ${this.ports.length} different ports can be configured
-          <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
+          <label class="help-label">
             ${html.raw(icon.help)}
-            <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
+            <p class="app-tooltip">
               Each device connected to GATAS will automatically receive GDL90 packets. By default, these packets are sent on port <b>4000</b>, but up to ${this.ports.length}
               different ports can be configured to accommodate devices that listen on other ports. Default port is <b>4000</b>
               When GATAS is connrect to an Access Point, additional GDL messages will be send to the gateway address. This allows
@@ -549,7 +551,7 @@ class GDLoverUDPConfig extends ModuleConfig {
               to Receive online traffic information.
             </p>
           </label>
-          <div class="grid md-columns-4 lg-columns-4">
+          <div class="app-grid app-grid--4">
             ${this.ports.map(
       (item) => html`
                 <label class="has-sub ${this._hasValue("port_" + item) && "active"}">
@@ -561,31 +563,31 @@ class GDLoverUDPConfig extends ModuleConfig {
           </div>
         </div>
 
-        <div class="section">
+        <div class="page-section">
           Up to ${this.ips.length} different IPs can be configured
-          <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
+          <label class="help-label">
             ${html.raw(icon.help)}
-            <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
+            <p class="app-tooltip">
               In addition to ports, up to ${this.ips.length} separate IP addresses can be configured.
               This is usually only useful if your system connects to an access point and you have a third device connected to the same accesspoint.
               By default GA/TAAS will send UDP traffic to the gateway in client mode using the configured ports.<br />
               Default port is <b>4000</b>
             </p>
           </label>
-          <div class="grid md-columns-2 lg-columns-2">
+          <div class="app-grid app-grid--2">
             ${this.ips.map(
       (item) => html`
-                <div class="row g-0">
-                  <div class="col-10">
+                <div class="split-row">
+                  <div class="split-main">
                     <label class="has-sub ${this._hasValue("ip_" + item) && "active"}">
                       <sub>IP ${item}</sub>
                       <input type="text" id="ip_${item}" ref="ip_${item}" onblur="this.parentElement.classList.toggle('active', this.value)" />
                     </label>
                   </div>
-                  <div class="col-2">
+                  <div class="split-aside endpoint-port">
                     <label class="has-sub ${this._hasValue("ipport_" + item) && "active"}">
                       <sub>Port ${item}</sub>
-                      <input type="text" id="ipport_${item}" ref="ipport_${item}" onblur="this.parentElement.classList.toggle('active', this.value)" />
+                      <input type="text" inputmode="numeric" maxlength="5" size="5" id="ipport_${item}" ref="ipport_${item}" onblur="this.parentElement.classList.toggle('active', this.value)" />
                     </label>
                   </div>
                 </div>
@@ -650,12 +652,12 @@ class Dump1090ClientConfig extends ModuleConfig {
         This module enables reading ADS-B data in the format '*8D7C7181215D01A08208204D8BF1;' from an external system like Dump1090 into GATAS (port
         &lt;IP&gt;:30002), processing them as traffic targets. Ensure that the ADSBDecoder is enabled and there is traffic within the filtered ranges above or
         below so you will actually see them.
-          <div class="alert alert-warning">
+          <div class="notice notice--warning">
           ${html.raw(icon.warning)} This module requires a restart after modification of the configuration.
         </div>
       </p>
       <form ref="form" autocomplete="off" novalidate="novalidate">
-        <div class="section grid md-columns-2 lg-columns-2">
+        <div class="page-section app-grid app-grid--2">
           <label for="ip">
             IP:
             <input type="text" id="ip" ref="ip" placeholder="SSID" } />
@@ -724,12 +726,12 @@ class SX1262 extends ModuleConfig {
       <h4>Configuration of the ${this.name} LoRaWAN module</h4>
 
       <form ref="form" autocomplete="off" novalidate="novalidate">
-        <div class="section grid md-columns-2 lg-columns-2">
+        <div class="page-section app-grid app-grid--2">
           <label for="offset">
             Offset(Hz)
-            <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
+            <label class="help-label">
               ${html.raw(icon.help)}
-              <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
+              <p class="app-tooltip">
                 Adds an additional offset to the frequency for the protocol in this device. To calibrate you can use an existing (correctly calibrated) OGN
                 receiver and use its frequency offset. When shown as a negative value, use a positive value in the below input field to offset the frequency.
               </p> </label
@@ -737,9 +739,9 @@ class SX1262 extends ModuleConfig {
             <input type="text" id="offset" ref="offset" placeholder="0" } />
           </label>
           <label for="txEnabled">
-            <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
+            <label class="help-label">
               TX Enabled ${html.raw(icon.help)}
-              <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
+              <p class="app-tooltip">
                 Allows to enable or disable complete transmission of any frames from the radio. Normally you want to have this enabled so others can see you.
               </p> </label
             >:
@@ -813,7 +815,7 @@ class BluetoothConfig extends ModuleConfig {
       </p>
 
       <form ref="form" autocomplete="off" novalidate="novalidate">
-        <div class="row g-0">
+        <div class="split-row">
           <label for="localName">
             Device Name:
             <input type="text" id="localName" ref="localName" placeholder="GaTas" />
@@ -839,8 +841,6 @@ class GatasConnectConfig extends ModuleConfig {
   }
   mounted() {
     const validator = new JustValidate(this.$refs.form);
-    this.$refs.output.addEventListener("change", this._toggleGdl90BridgeVisibility.bind(this));
-    this._toggleGdl90BridgeVisibility();
 
     validator
       .addField(this.$refs.pinCode, [
@@ -854,30 +854,23 @@ class GatasConnectConfig extends ModuleConfig {
         }
       ])
       .onSuccess((event) => {
-        const data = this._getFormData();
-        store.updateModuleData("GatasConnect", { ...this.copyOfData, ...data }).then(() => {
+        const data = { ...this.copyOfData, ...this._getFormData() };
+        delete data.output;
+        store.updateModuleData("GatasConnect", data).then(() => {
           this.close();
         });
       });
   }
 
-  _toggleGdl90BridgeVisibility() {
-    this.$refs.enableGdl90BridgeGroup.style.display = this.$refs.output.value === "udp" ? "none" : "";
-  }
-
   _setFormData(data) {
     //    this.$refs.pinCode.value = data.pinCode !== undefined ? data.pinCode : this.randomIntFromInterval(1000, 999999);
     this.$refs.pinCode.value = data.pinCode !== undefined ? data.pinCode : "0";
-    this.$refs.output.value = data.output !== undefined ? data.output : "udp";
-    this.$refs[`output_${data.output?.toLowerCase()}`].selected = true;
     this.$refs.enableGdl90Bridge.checked = data.enableGdl90Bridge === true;
-    this._toggleGdl90BridgeVisibility();
   }
 
   _getFormData() {
     return {
       pinCode: this.$refs.pinCode.value.trim(),
-      output: this.$refs.output.value,
       enableGdl90Bridge: this.$refs.enableGdl90Bridge.checked,
     };
   }
@@ -892,7 +885,7 @@ class GatasConnectConfig extends ModuleConfig {
         to have GATAS receive additional traffic over bluetooth.
       </p>
 
-        <div class="alert alert-warning">
+        <div class="notice notice--warning">
           <div>
           The Pin Code is used when you use <a href="https://gatas.vantwisk.nl" target="_blank" rel="noopener noreferrer">GATAS Connect</a> online
           application to connect to your GATAS system to allow to configure your GATAS aircraft you are flying.
@@ -906,23 +899,14 @@ class GatasConnectConfig extends ModuleConfig {
         </div>
 
       <form ref="form" autocomplete="off" novalidate="novalidate">
-        <div class="row g-0">
-            <div class="col-10" style="margin-top:20px;">
+        <div class="split-row">
+            <div class="split-main" style="margin-top:20px;">
               <label for="ip">
                 Pin Code:
                 <input type="text" id="pinCode" ref="pinCode" placeholder="0" } />
               </label>
             </div>
-            <div class="col-10" style="margin-top:20px;">
-              <label for="output">
-                Output:
-                <select id="output" ref="output">
-                  <option value="udp" ref="output_udp">UDP</option>
-                  <option value="bluetooth" ref="output_bluetooth">Bluetooth</option>
-                </select>
-              </label>
-            </div>
-            <div class="col-10" style="margin-top:20px;" ref="enableGdl90BridgeGroup">
+            <div class="split-main" style="margin-top:20px;" ref="enableGdl90BridgeGroup">
               <label for="enableGdl90Bridge">
                 Enable Gdl90 Bridge:
                 <input type="checkbox" id="enableGdl90Bridge" ref="enableGdl90Bridge" />
@@ -985,12 +969,12 @@ class GatasConnectUDPConfig extends ModuleConfig {
         <br/><br/>
         To setup GATAS Connect:
         <ul>
-          <li>Enter the the IP address of your GATAS Connect service you <button class="btn btn-medium xs" type="button" title="Copy to IP field" style="cursor:pointer" onclick=${() => { this.$refs.ip.value = 'gatas.vantwisk.nl'; }}>can use gatas.vantwisk.nl</button> which is free to use:
+          <li>Enter the the IP address of your GATAS Connect service you can use <button class="secondary compact-button" type="button" title="Copy to IP field" style="cursor:pointer" onclick=${() => { this.$refs.ip.value = 'gatas.vantwisk.nl'; }}>gatas.vantwisk.nl</button> which is free to use:
           <li>Then setup your WIFI to connect to your mobile hotspot and ensure to enable 'Client Only' in WifiService.
         </ul>
       </p>
 
-        <div class="alert alert-warning">
+        <div class="notice notice--warning">
           <div>
           The Pin Code is used when you use <a href="https://gatas.vantwisk.nl" target="_blank" rel="noopener noreferrer">GATAS Connect</a> online
           application to connect to your GATAS system to allow to configure your GATAS aircraft you are flying.
@@ -1000,11 +984,11 @@ class GatasConnectUDPConfig extends ModuleConfig {
         </div>
 
       <form ref="form" autocomplete="off" novalidate="novalidate">
-        <div class="row g-0">
-            <div class="col-10">
+        <div class="split-row">
+            <div class="split-main">
               <label for="ip">
                 IP Address or domain name of GATAS Server:
-                <input type="text" id="ip" ref="ip" placeholder="gatas.vantwisk.nl" } />
+                <input type="text" id="ip" ref="ip" />
               </label>
             </div>
         </div>
@@ -1048,11 +1032,11 @@ class AbstractGnss extends ModuleConfig {
       <h4>Configuration of the GNSS module</h4>
 
       <form ref="form" autocomplete="off" novalidate="novalidate">
-        <div class="section grid md-columns-2 lg-columns-2">
+        <div class="page-section app-grid app-grid--2">
           <label for="softPPS">
-            <label class="btn sm btn-medium btn-link p-0 circle mt-n1">
+            <label class="help-label">
               Software based PPS ${html.raw(icon.help)}
-              <p class="tooltip rounded shadow o-90 p-2 bg-dark color-light mw-300 sm outset-bottom inset-left text-left mh-200 overflow-auto">
+              <p class="app-tooltip">
                 When Enable a softwareBased but less accurate approach to get a PPS signal from the GNSS data.
                 This is useful when your GNSS module does not have a dedicated PPS output pin. If you have PPS, leave this disabled for best accuracy.
               </p> </label>:

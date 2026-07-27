@@ -45,6 +45,14 @@ public:
 
 GATAS::ThreadSafeBus<50> bus;
 
+TEST_CASE("GDL90 callsigns are converted to uppercase", "[single-file]")
+{
+    MockConfig mockConfig{bus};
+    Gdl90Service gdl90Service{bus, mockConfig};
+
+    REQUIRE(gdl90Service.makeGdlCallsign("ph-Ab12") == "PH-AB12");
+}
+
 // TEST_CASE("GDL90.self_test", "[single-file]")
 // {
 //     GDL90 gdl90;

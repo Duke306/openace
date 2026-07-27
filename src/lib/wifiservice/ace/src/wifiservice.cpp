@@ -447,7 +447,7 @@ void WifiService::showSsidPwdIp(const etl::string_view &ssid, const etl::string_
     char ipStr[IP4ADDR_STRLEN_MAX];
 
     ip4addr_ntoa_r(&ip, ipStr, IP4ADDR_STRLEN_MAX);
-    puts("###################################");
+    puts("\n###################################");
     if (wifiMode == GATAS::WifiMode::AP)
     {
         printf("## Mode: %s\n## SSID: %s Password: %s IP: %s\n", mode, ssid.begin(), password.begin(), ipStr);

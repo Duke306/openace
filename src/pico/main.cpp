@@ -208,18 +208,20 @@ constexpr size_t VOL_DATA_SIZE = 4096;
 uint8_t __uninitialized_ram(store[VOL_DATA_SIZE]);
 static InMemoryStore volatileStore{VOL_DATA_SIZE, store};
 
-// Bluetooth stores bonding information at the last sector
-// Flash memory Map
-// FLASH_SECTOR_SIZE => 4096 on the PICO
-// |--------------|---------------|---------------|----------------|-------------------|
-// | xxBytes.     | ....          | 4096Bytes.    | 4096 Bytes.    | 8192 Bytes.       |
-// | Application  | ....          | Binary Store  | permanentStore | Bluetooth Bonding |
+// Flash memory map, from low to high addresses:
+// RP2040: Application | Binary Store | Permanent Store | Bluetooth (2 sectors)
+// RP2350: Application | Bluetooth (2 sectors) | Binary Store |
+//         Permanent Store | unused | E10 reserved
+//
+// RP2350's SDK default places Bluetooth bank 0 at the same offset as the
+// existing Permanent Store. The project configuration relocates the RP2350
+// Bluetooth banks while retaining the established OpenAce store addresses.
 
 constexpr size_t PERMSTORE_NUM_SECTORS = (VOL_DATA_SIZE + FLASH_SECTOR_SIZE - 1) / FLASH_SECTOR_SIZE;
 constexpr size_t BINSTORE_NUM_SECTORS = (sizeof(GATAS::BinaryStore) + FLASH_SECTOR_SIZE - 1) / FLASH_SECTOR_SIZE;
 
 // Used to store Application Configuration
-static FlashStore permanentStore{PERMSTORE_NUM_SECTORS * FLASH_SECTOR_SIZE, FLASH_SECTOR_SIZE * 3}; // FLASH_SECTOR_SIZE => 4096 on the PICO
+static FlashStore permanentStore{PERMSTORE_NUM_SECTORS * FLASH_SECTOR_SIZE, FLASH_SECTOR_SIZE * 3};
 // Used to store runtime information not stored in permanent store, counters, id's etc...
 static FlashStore binaryStore{BINSTORE_NUM_SECTORS * FLASH_SECTOR_SIZE, FLASH_SECTOR_SIZE * 4};
 

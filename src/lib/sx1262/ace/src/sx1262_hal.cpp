@@ -22,7 +22,7 @@
  */
 uint8_t sx126x_buzy_wait(uint8_t busyPin)
 {
-    constexpr uint32_t timeoutUs = 250'000;
+    constexpr uint32_t timeoutUs = 50'000;
     constexpr uint32_t activeSpinUs = 30;
 
     const uint32_t start = CoreUtils::timeUs32Raw();

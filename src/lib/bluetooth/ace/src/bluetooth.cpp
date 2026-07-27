@@ -187,7 +187,7 @@ void Bluetooth::on_receive(const GATAS::DataPortMsg &msg)
 
 void Bluetooth::on_receive(const GATAS::GatasConnectTx &msg)
 {
-    if ((msg.output != GATAS::GatasConnectOutput::Bluetooth && msg.output != GATAS::GatasConnectOutput::Broadcast))
+    if (!msg.output.usesBluetooth())
     {
         return;
     }
@@ -565,7 +565,7 @@ int Bluetooth::attWriteCallback(hci_con_handle_t con_handle, uint16_t att_handle
                     memcpy(copy, payload.data(), payload.size());
                     // Adding a null terminator because it's expected downstream
                     copy[payload.size()] = 0;
-                    Bluetooth::instance->getBus().receive(GATAS::GatasConnectRx(pool, copy, payload.size() + 1));
+                    Bluetooth::instance->getBus().receive(GATAS::GatasConnectRx(pool, GATAS::GatasConnectTransport::Bluetooth, copy, payload.size() + 1));
                 } 
             }));
         // clang-format on

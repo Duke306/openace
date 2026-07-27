@@ -31,6 +31,13 @@ SPECIALS = {
     },
     "/captive.html": {
         "cache_control": 0
+    },
+    "/error.json": {
+        "cache_control": 0,
+        "status": "400 Bad Request"
+    },
+    "/ok.json": {
+        "cache_control": 0
     }
 }
 
@@ -89,11 +96,12 @@ def generateHeader(filePath, fileName, contentLength):
     contentType = specialSettings.get('content_type', contentType)
     contenEncoding = specialSettings.get('content_encoding', contenEncoding)
     cacheControl = specialSettings.get('cache_control', cacheControl)
+    status = specialSettings.get('status', '200 OK')
 
     print(f"{fileName} {contentType}")
     
     # Create Headers
-    header.extend(f"HTTP/1.0 200 OK\r\n".encode('utf-8'))
+    header.extend(f"HTTP/1.0 {status}\r\n".encode('utf-8'))
     header.extend(f"Content-type: {contentType}\r\n".encode('utf-8'))
     header.extend(f"Content-Encoding: {contenEncoding}\r\n".encode('utf-8'))
     header.extend(f"Content-Length: {contentLength}\r\n".encode('utf-8'))

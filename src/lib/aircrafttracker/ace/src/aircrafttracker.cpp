@@ -65,7 +65,7 @@ void AircraftTracker::on_receive(const GATAS::Every5SecMsg &msg)
 void AircraftTracker::getData(etl::string_stream &stream, const etl::string_view path) const
 {
     (void)path;
-    auto guard = lockTrackedAircraft();
+    auto guard = SemaphoreGuard<>(portMAX_DELAY, trackedAircraftMutex);
     stream << "{";
     for (uint8_t i = 0; i < static_cast<uint8_t>(GATAS::DataSource::_RADIO); i++)
     {
@@ -132,14 +132,9 @@ void AircraftTracker::on_receive(const GATAS::IngressAircraftPositionsMsg &msg)
         {
             antennaRadiationPattern[dataSource].put(aircraft, op.lat, op.lon, op.track);
         }
-        if (!queue.full())
-        {
-            queue.push(aircraft);
-        }
-        else
+        if (!enqueuePosition(aircraft))
         {
             GATAS_WARN("Queue Full");
-            statistics.queueFullErr += 1;
             break;
         }
     }
@@ -187,13 +182,9 @@ void AircraftTracker::on_receive(const GATAS::IngressAircraftPositionMsg &msg)
         antennaRadiationPattern[dataSource].put(msg, op.lat, op.lon, op.track);
     }
 
-    if (!queue.full())
+    if (!enqueuePosition(msg.position))
     {
-        queue.push(msg.position);
-    }
-    else
-    {
-        statistics.queueFullErr += 1;
+        return;
     }
     xTaskNotify(taskHandle, TaskState::NEW, eSetBits);
 }
@@ -219,7 +210,7 @@ void AircraftTracker::aircraftTrackerTask(void *arg)
     {
         uint32_t notifyValue = 0;
         xTaskNotifyWait(pdFALSE, ULONG_MAX, &notifyValue, portMAX_DELAY);
-        auto guard = lockTrackedAircraft();
+        auto guard = SemaphoreGuard<>(portMAX_DELAY, trackedAircraftMutex);
 
         // Handle timers
         if (notifyValue & TaskState::MAINTAIN)
@@ -256,6 +247,17 @@ void AircraftTracker::handleNew()
         trackedAircraft.insert(position);
         statistics.positionsProcessed += 1;
     }
+}
+
+bool AircraftTracker::enqueuePosition(const GATAS::AircraftPositionInfo &position)
+{
+    if (queue.push(position))
+    {
+        return true;
+    }
+
+    statistics.queueFullErr += 1;
+    return false;
 }
 
 void AircraftTracker::handleTrackedAircraft(const GATAS::AircraftPositionInfo &position)

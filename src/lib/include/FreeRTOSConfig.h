@@ -74,14 +74,14 @@
 #define configMESSAGE_BUFFER_LENGTH_TYPE        size_t
 
 /* Memory allocation related definitions. */
-#define configSUPPORT_STATIC_ALLOCATION         0
+#define configSUPPORT_STATIC_ALLOCATION         1
 #define configSUPPORT_DYNAMIC_ALLOCATION        1
 #if defined(PICO_RP2350)
 #define configTOTAL_HEAP_SIZE                   (200*1024)
 #else
-/* GATAS: Changed from 128 to 115 to 112*/
-/* ArduinoJson is memory hungry, need to change that for something else, but for now just lowered memory */
-#define configTOTAL_HEAP_SIZE                   (78*1024)
+/* Static idle and timer task storage now lives in .bss, so return the equivalent
+ * space from the FreeRTOS heap to the libc heap used for module allocation. */
+#define configTOTAL_HEAP_SIZE                   (60*1024)
 #endif
 #define configAPPLICATION_ALLOCATED_HEAP        0
 

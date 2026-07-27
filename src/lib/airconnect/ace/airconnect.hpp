@@ -44,8 +44,8 @@ class AirConnect : public BaseModule, public etl::message_router<AirConnect, GAT
     {
         static constexpr uint16_t PACKET_BUFFER_SIZE = 512;
         PacketBuffer<PACKET_BUFFER_SIZE, PACKET_BUFFER_SIZE / (GATAS::NMEA_MAX_LENGTH / 2)> buffer;
-        AirConnect *airConnect;
-        uint16_t bufferOverrunErr;
+        AirConnect *airConnect = nullptr;
+        uint16_t bufferOverrunErr = 0;
         TcpClient tcpClient;
 
         bool isDisconnected() const

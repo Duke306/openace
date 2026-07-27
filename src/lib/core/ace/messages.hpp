@@ -343,11 +343,12 @@ namespace GATAS
     {
         mutable PoolOwnedPtr<GATAS::GlobalPoolConfiguration, uint8_t> cobsMessage;
         size_t length;
+        GATAS::GatasConnectTransport source;
 
-        GatasConnectRx(GATAS::GlobalPoolConfiguration &pool, uint8_t *cobsMessage_, size_t length_)
-            : cobsMessage(pool, cobsMessage_), length(length_) {}
+        GatasConnectRx(GATAS::GlobalPoolConfiguration &pool, GATAS::GatasConnectTransport source_, uint8_t *cobsMessage_, size_t length_)
+            : cobsMessage(pool, cobsMessage_), length(length_), source(source_) {}
 
-        GatasConnectRx(PoolOwnedPtr<GATAS::GlobalPoolConfiguration, uint8_t> &&cobsMessage_, size_t length_)
-            : cobsMessage(etl::move(cobsMessage_)), length(length_) {}
+        GatasConnectRx(PoolOwnedPtr<GATAS::GlobalPoolConfiguration, uint8_t> &&cobsMessage_, size_t length_, GATAS::GatasConnectTransport source_)
+            : cobsMessage(etl::move(cobsMessage_)), length(length_), source(source_) {}
     };
 }
