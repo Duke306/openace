@@ -6,6 +6,14 @@ class AirCraftSession extends El {
     this.state = this.$observable({ aircraft: [] });
   }
 
+  _update() {
+    super._update();
+
+    if (this.selected && this.$refs.aircraft) {
+      this.$refs.aircraft.value = this.selected;
+    }
+  }
+
   _aircraftUpdated(e) {
     let idx = e.currentTarget.selectedIndex;
     let aircraftId = store.state.aircrafts[idx].callSign;
@@ -21,7 +29,7 @@ class AirCraftSession extends El {
       <div class="page-section">
         <label>
           Aircraft:
-          <select onchange=${this._aircraftUpdated}>
+          <select ref="aircraft" onchange=${this._aircraftUpdated}>
             ${store.state.aircrafts.map(
               (item) => html`<option ${item.callSign === this.selected ? "selected" : ""} value="${item.callSign}">${item.callSign}</option>`,
             )}

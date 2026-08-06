@@ -210,12 +210,18 @@ static InMemoryStore volatileStore{VOL_DATA_SIZE, store};
 
 // Flash memory map, from low to high addresses:
 // RP2040: Application | Binary Store | Permanent Store | Bluetooth (2 sectors)
-// RP2350: Application | Bluetooth (2 sectors) | Binary Store |
-//         Permanent Store | unused | E10 reserved
+// RP2350:
+//   end - 6 sectors: Bluetooth bank 0
+//   end - 5 sectors: Bluetooth bank 1
+//   end - 4 sectors: Binary Store
+//   end - 3 sectors: Permanent Store (application configuration, unchanged)
+//   end - 2 sectors: unused
+//   end - 1 sector:  E10 reserved
 //
 // RP2350's SDK default places Bluetooth bank 0 at the same offset as the
 // existing Permanent Store. The project configuration relocates the RP2350
 // Bluetooth banks while retaining the established OpenAce store addresses.
+// SEE PICO_FLASH_BANK_STORAGE_OFFSET in config.hpp.in
 
 constexpr size_t PERMSTORE_NUM_SECTORS = (VOL_DATA_SIZE + FLASH_SECTOR_SIZE - 1) / FLASH_SECTOR_SIZE;
 constexpr size_t BINSTORE_NUM_SECTORS = (sizeof(GATAS::BinaryStore) + FLASH_SECTOR_SIZE - 1) / FLASH_SECTOR_SIZE;
