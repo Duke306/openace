@@ -104,7 +104,9 @@ class GaTasModules extends El {
         html`Transmits all DataPort messages over Bluetooth, providing NMEA datastreams to external devices. EFBs like SkyDemon can connect to GaTas via
         Bluetooth.`,
       Gdl90Service: (html) => html`Generates GDL90 messages. Requires a module like GDLoverUDP to receive them on external devices.`,
-      GDLoverUDP: (html) => html`Transmits GDL90 messages over UDP to external devices.`,
+      GDLoverUDP: (html) =>
+        html`Transmits GDL90 messages over UDP to external devices. ForeFlight clients are discovered automatically, and their advertised GDL90 port is used
+        without manual client configuration.`,
       GatasConnect: (html) => html`Generates COBS-framed GATAS Connect traffic and routes it to the configured transport.`,
       GatasConnectUDP: (html) => html`Receives and transmits GATAS Connect COBS payloads over UDP.`,
       Flarm: (html) => html`Sends and receives Flarm protocol messages.`,

@@ -98,7 +98,6 @@ void GDLoverUDP::foreFlightListener(void *arg, udp_pcb *pcb, pbuf *p, const ip_a
 
     GATAS_MEASURE("foreFlightListener", 90);
     GDLoverUDP *that = static_cast<GDLoverUDP *>(arg);
-    that->statistics.foreFlightBroadcasts += 1;
 
     // When this FF client has been detected already, then ignore
     if (auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()})
@@ -145,8 +144,11 @@ void GDLoverUDP::foreFlightListener(void *arg, udp_pcb *pcb, pbuf *p, const ip_a
 
     auto guard = SpinlockGuard{CoreUtils::sharedSpinLock()};
     auto portExists = that->udpPorts.contains(static_cast<uint16_t>(outPort));
+
     // Only add this new client if we have space for a new port
     // or the existing ports exists and there is room for the address
+    that->statistics.foreFlightBroadcasts += 1;
+
     if (portExists || !that->udpPorts.full())
     {
         // Add the CLient's IP
@@ -167,6 +169,25 @@ void GDLoverUDP::getData(etl::string_stream &stream, const etl::string_view path
     stream << ",\"currentAddressesInUse\":" << connectedClients.size();
     stream << ",\"maxPorts\":" << udpPorts.max_size();
     stream << ",\"currentPortsInUse\":" << udpPorts.size();
+    stream << ",\"foreFlightClients\":[";
+    bool firstClient = true;
+    for (const auto client : connectedClients)
+    {
+        ip4_addr_t ip(client);
+        char ipStr[IP4ADDR_STRLEN_MAX];
+        ip4addr_ntoa_r(&ip, ipStr, sizeof(ipStr));
+
+        for (const auto port : udpPorts)
+        {
+            if (!firstClient)
+            {
+                stream << ",";
+            }
+            stream << "{\"ip\":\"" << ipStr << "\",\"port\":" << port << "}";
+            firstClient = false;
+        }
+    }
+    stream << "]";
     stream << "}";
 }
 

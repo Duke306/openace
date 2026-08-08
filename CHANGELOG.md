@@ -31,6 +31,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
+## [v3.2.2] - 2026-08-08
+
+### Added
+
+-
+
+### Changed
+
+- Clarified in the GDL over UDP module overview and configuration panel that ForeFlight clients and their advertised GDL90 ports are discovered automatically.
+- Extended the ForeFlight simulator to listen on its advertised GDL90 UDP port and count received packets.
+- Added a device integration test that verifies GDL90 UDP traffic starts only after ForeFlight advertises its listening port and includes heartbeat messages.
+
+### Deprecated
+
+-
+
+### Removed
+
+-
+
+### Fixed
+
+-
+
+### Security
+
+-
+
 ## [v3.2.1] - 2026-08-06
 
 ### Added

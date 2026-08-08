@@ -538,6 +538,14 @@ class GDLoverUDPConfig extends ModuleConfig {
         In all cases GATAS will send messages to clients in the same network.
       </p>
 
+      <div class="notice">
+        ${html.raw(icon.primary)}
+        <div>
+          <strong>ForeFlight is discovered automatically.</strong><br />
+          When ForeFlight announces its GDL90 port, GATAS starts sending traffic to that port. You do not need to add the ForeFlight IP address or port below.
+        </div>
+      </div>
+
       <form ref="form" autocomplete="off" novalidate="novalidate">
         <div class="page-section">
           Up to ${this.ports.length} different ports can be configured

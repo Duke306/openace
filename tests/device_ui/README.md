@@ -24,6 +24,7 @@ Run one area:
 
 ```bash
 OPENACE_DEVICE_URL=http://192.168.178.227 .venv/bin/pytest tests/test_gatas_connect.py
+OPENACE_DEVICE_URL=http://192.168.178.227 .venv/bin/pytest tests/test_foreflight_discovery.py
 OPENACE_DEVICE_URL=http://192.168.178.227 .venv/bin/pytest tests/test_flash_persistence.py
 ```
 
@@ -38,6 +39,9 @@ Use `--headed` to watch the browser. Playwright traces and screenshots are
 retained for failures under `test-results/`.
 
 The suite creates unique temporary aircraft and removes them afterward.
+The ForeFlight discovery test listens on an unused local UDP port, verifies the
+device does not send to it before discovery, advertises it to the device, and
+then requires several GDL90 packets including a heartbeat.
 The flash persistence test temporarily changes the active aircraft category,
 calls `SaveBr`, and uses the `GATAS_DEBUG`-only `CompareBr` endpoint to verify
 the flash contents immediately. It restores and saves the original aircraft
