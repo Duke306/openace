@@ -99,6 +99,7 @@ void DataPort::sendPFLAA(const GATAS::AircraftPositionInfo &position)
         ;                                              // RSSI
 
     CoreUtils::addChecksumToNMEA(pflaa);
+    // Or use netcat 192.168.178.227 2000 > log.txt
     if (DEBUG_DATAPORT)
     {
         puts(pflaa.c_str());
