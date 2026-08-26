@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
--
+- Added once-per-second DataPort PFLAU heartbeats with tracked-aircraft RX counts and GPS-derived TX/GPS status.
 
 ### Changed
 
@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
--
+- Restored u-blox M8 navigation configuration using the Airborne `<4g` dynamic platform model.
 
 ### Security
 
