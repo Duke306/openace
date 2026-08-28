@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added once-per-second DataPort PFLAU heartbeats with tracked-aircraft RX counts and GPS-derived TX/GPS status.
+- Bluetooth also sends on Nordic GATT
 
 ### Changed
 
