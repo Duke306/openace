@@ -237,6 +237,7 @@ private:
 
     static bool sendNMEABuffer(BtContext &ctx);
     static bool sendCobsBuffer(BtContext &ctx);
+    static void receiveNMEA(BtContext &ctx, uint8_t *buffer, uint16_t bufferSize);
     static bool hasPendingData(const BtContext &ctx);
     static void requestSendIfPending(BtContext &ctx);
     void createScanResponseData();

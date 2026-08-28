@@ -112,7 +112,7 @@ void Bluetooth::getData(etl::string_stream &stream, const etl::string_view path)
 void Bluetooth::createAdvData()
 {
     // clang-format off
-    static const uint8_t serviceUUID[16] = {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xe0, 0xff, 0x00, 0x00};
+    static const uint8_t hm10UartServiceUUID[16] = {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xe0, 0xff, 0x00, 0x00};
     // clang-format on
     static constexpr size_t adFieldHeaderSize = 2;
 
@@ -127,9 +127,9 @@ void Bluetooth::createAdvData()
     // bit 4 Previously Used
     advertiseData.push_back(0x06);
 
-    advertiseData.push_back(1 + sizeof(serviceUUID));
-    advertiseData.push_back(BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS);
-    advertiseData.insert(advertiseData.end(), std::begin(serviceUUID), std::end(serviceUUID));
+    advertiseData.push_back(1 + sizeof(hm10UartServiceUUID));
+    advertiseData.push_back(BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS);
+    advertiseData.insert(advertiseData.end(), std::begin(hm10UartServiceUUID), std::end(hm10UartServiceUUID));
 
     const size_t remainingNameBytes = advertiseData.max_size() - advertiseData.size() - adFieldHeaderSize;
     const size_t advertisedNameLength = etl::min(remainingNameBytes, localName.size());
@@ -143,11 +143,19 @@ void Bluetooth::createAdvData()
 
 void Bluetooth::createScanResponseData()
 {
+    // clang-format off
+    static const uint8_t nordicUartServiceUUID[16] = {0x9e, 0xca, 0xdc, 0x24, 0x0e, 0xe5, 0xa9, 0xe0, 0x93, 0xf3, 0xa3, 0xb5, 0x01, 0x00, 0x40, 0x6e};
+    // clang-format on
     static constexpr size_t adFieldHeaderSize = 2;
-    const size_t maxNameLength = scanResponseData.max_size() - adFieldHeaderSize;
+    const size_t serviceFieldSize = sizeof(nordicUartServiceUUID) + adFieldHeaderSize;
+    const size_t maxNameLength = scanResponseData.max_size() - serviceFieldSize - adFieldHeaderSize;
     const size_t scanResponseNameLength = etl::min(maxNameLength, localName.size());
 
     scanResponseData.clear();
+    scanResponseData.push_back(1 + sizeof(nordicUartServiceUUID));
+    scanResponseData.push_back(BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS);
+    scanResponseData.insert(scanResponseData.end(), std::begin(nordicUartServiceUUID), std::end(nordicUartServiceUUID));
+
     if (scanResponseNameLength > 0)
     {
         scanResponseData.push_back(static_cast<uint8_t>(1 + scanResponseNameLength)); // length = type + name length
@@ -310,6 +318,27 @@ bool Bluetooth::sendCobsBuffer(BtContext &ctx)
 
     GATAS_VERIFY(sendStatus == ERROR_CODE_SUCCESS, "Bluetooth: Send Failed");
     return true;
+}
+
+void Bluetooth::receiveNMEA(BtContext &ctx, uint8_t *buffer, uint16_t bufferSize)
+{
+    ctx.nmeaGulp.setRef(etl::span<uint8_t>(buffer, bufferSize));
+
+    etl::span<uint8_t> sentence;
+    while (ctx.nmeaGulp.pop_into(sentence))
+    {
+        if (sentence.empty())
+        {
+            continue;
+        }
+        instance->statistics.nmeaMsgReceived += 1;
+        GATAS::NMEAString nmeaSentence;
+        const auto length = etl::min(sentence.size(), static_cast<size_t>(GATAS::NMEA_MAX_LENGTH - 3));
+        const auto *begin = reinterpret_cast<const char *>(sentence.data());
+        nmeaSentence.assign(begin, begin + length);
+        GATAS_MEASURE("GATAS::DataPortMsg", 100);
+        instance->getBus().receive(GATAS::DataPortMsg{nmeaSentence});
+    }
 }
 
 bool Bluetooth::hasPendingData(const BtContext &ctx)
@@ -501,19 +530,27 @@ int Bluetooth::attWriteCallback(hci_con_handle_t con_handle, uint16_t att_handle
     }
     switch (att_handle)
     {
-    // NMEA/Dataport CCCD: track whether the remote side enabled notifications for the text stream.
+    case ATT_CHARACTERISTIC_6E400003_B5A3_F393_E0A9_E50E24DCCA9E_01_CLIENT_CONFIGURATION_HANDLE:
     case ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_CLIENT_CONFIGURATION_HANDLE:
     {
-        // GATAS_INFO("ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_CLIENT_CONFIGURATION_HANDLE");
+        const uint16_t nmeaValueHandle =
+            att_handle == ATT_CHARACTERISTIC_6E400003_B5A3_F393_E0A9_E50E24DCCA9E_01_CLIENT_CONFIGURATION_HANDLE
+                ? ATT_CHARACTERISTIC_6E400003_B5A3_F393_E0A9_E50E24DCCA9E_01_VALUE_HANDLE
+                : ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE;
+
         // clang-format off
         Bluetooth::withHandle(con_handle,
-            etl::delegate<void(BtContext &)>::create([buffer](BtContext &ctx)
+            etl::delegate<void(BtContext &)>::create([buffer, nmeaValueHandle](BtContext &ctx)
             {
                 const bool enabled = little_endian_read_16(buffer, 0) == GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION;
                 if (enabled)
                 {
-                    ctx.nmeaAttrHandle = ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE;
-                } 
+                    ctx.nmeaAttrHandle = nmeaValueHandle;
+                }
+                else if (ctx.nmeaAttrHandle == nmeaValueHandle)
+                {
+                    ctx.nmeaAttrHandle = 0;
+                }
             }));
         // clang-format on
     }
@@ -572,7 +609,8 @@ int Bluetooth::attWriteCallback(hci_con_handle_t con_handle, uint16_t att_handle
     }
     break;
 
-    // NMEA/Dataport value: receive plain text sentences and forward them as DataPort messages.
+    // Nordic UART RX and HM-10 NMEA values share the same plain-text DataPort handling.
+    case ATT_CHARACTERISTIC_6E400002_B5A3_F393_E0A9_E50E24DCCA9E_01_VALUE_HANDLE:
     case ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE:
     {
         // GATAS_INFO("ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE");
@@ -580,23 +618,7 @@ int Bluetooth::attWriteCallback(hci_con_handle_t con_handle, uint16_t att_handle
         Bluetooth::withHandle(con_handle,
             etl::delegate<void(BtContext &)>::create([buffer, buffer_size](BtContext &ctx)
             {
-                ctx.nmeaGulp.setRef(etl::span<uint8_t>(buffer, buffer_size));
-
-                etl::span<uint8_t> sentence;
-                while (ctx.nmeaGulp.pop_into(sentence))
-                {
-                    if (sentence.empty())
-                    {
-                        continue;
-                    }
-                    Bluetooth::instance->statistics.nmeaMsgReceived +=1;
-                    GATAS::NMEAString nmeaSentence;
-                    const auto length = etl::min(sentence.size(), (size_t)GATAS::NMEA_MAX_LENGTH - 3);
-                    const auto *begin = reinterpret_cast<const char *>(sentence.data());
-                    nmeaSentence.assign(begin, begin + length);
-                    GATAS_MEASURE("GATAS::DataPortMsg", 100);
-                    Bluetooth::instance->getBus().receive(GATAS::DataPortMsg{nmeaSentence});
-                } 
+                Bluetooth::receiveNMEA(ctx, buffer, buffer_size);
             }));
         // clang-format on
     }
