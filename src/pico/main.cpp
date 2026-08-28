@@ -35,6 +35,7 @@
 #include "ace/flashstore.hpp"
 #include "ace/ubloxm8n.hpp"
 #include "ace/L76B.hpp"
+#include "ace/StaticGPS.hpp"
 #include "ace/adsbdecoder.hpp"
 #include "ace/picortc.hpp"
 #include "ace/wifiservice.hpp"
@@ -104,6 +105,7 @@ void registerModules()
     BaseModule::registerModule(GpsDecoder::NAME, false);
     BaseModule::registerModule(UbloxM8N::NAME, true);
     BaseModule::registerModule(L76B::NAME, true);
+    BaseModule::registerModule(StaticGPS::NAME, false);
     BaseModule::registerModule(SerialADSB::NAME, true);
     BaseModule::registerModule(Dump1090Client::NAME, false);
     BaseModule::registerModule(AircraftTracker::NAME, false);
@@ -166,6 +168,8 @@ BaseModule *loadModule(etl::string_view name, etl::imessage_bus &bus, Configurat
         return new L76B(bus, config);
     if (name == UbloxM8N::NAME)
         return new UbloxM8N(bus, config);
+    if (name == StaticGPS::NAME)
+        return new StaticGPS(bus, config);
     if (name == GpsDecoder::NAME)
         return new GpsDecoder(bus, config);
     if (name == GDLoverUDP::NAME)
@@ -339,6 +343,7 @@ static void loadModules(void *arg)
     load(GpsDecoder::NAME, bus, config);
     load(UbloxM8N::NAME, bus, config);
     load(L76B::NAME, bus, config);
+    load(StaticGPS::NAME, bus, config);
     load(Gdl90Service::NAME, bus, config);
     load(GDLoverUDP::NAME, bus, config);
     load(DataPort::NAME, bus, config);

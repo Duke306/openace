@@ -15,6 +15,9 @@ OpenAce is a multi-protocol aviation conspicuity device (OGN, FLARM, ADS-L, FANE
 - For richer or multi-value results, return a small struct declared next to the API so callers can use `auto result = function();` instead of passing output references.
 - Keep desktop test code and embedded code paths aligned when changing shared module behavior.
 - Use fixed-size ETL containers and avoid introducing dynamic-allocation-heavy patterns into firmware code.
+- Use `float`, never `double`, in project code and tests.
+- Prefer ETL text facilities such as `etl::string_stream` and `etl::string_view`; do not use `std::snprintf`.
+- Reuse `CoreUtils::addChecksumToNMEA(...)` when assembling NMEA sentences instead of implementing checksum formatting locally.
 - Always use braces for control-flow bodies, even when the body is a single line.
 - Do not introduce trailing-underscore variable names by default. Prefer the existing local naming style unless a specific file or API already requires a different convention.
 - Handle mutexes with RAII `SemaphoreGuard` scopes. Preferred pattern:

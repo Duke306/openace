@@ -29,6 +29,7 @@ left to right direction
 
 rectangle "GPS Subsystem" {
     [AbstractGnss]
+    [StaticGPS]
     [GpsDecoder]
 }
 
@@ -74,6 +75,8 @@ rectangle "Infrastructure" {
 }
 
 [AbstractGnss] --> [GpsDecoder] : GPSSentenceMsg
+[StaticGPS] --> [GpsDecoder] : GPSSentenceMsg
+[StaticGPS] ..> [PicoRtc] : ppsEvent (NTP phase)\n(direct call)
 [GpsDecoder] --> [Ogn1] : OwnshipPositionMsg
 [GpsDecoder] --> [Flarm2024] : OwnshipPositionMsg
 [GpsDecoder] --> [ADSLAce] : OwnshipPositionMsg
@@ -129,6 +132,7 @@ left to right direction
 
 package "GPS" {
     [AbstractGnss]
+    [StaticGPS]
     [GpsDecoder]
     [PicoRtc]
 }
@@ -152,6 +156,8 @@ package "Consumers" {
 }
 
 [AbstractGnss] --> [GpsDecoder] : GPSSentenceMsg
+[StaticGPS] --> [GpsDecoder] : GPSSentenceMsg
+[StaticGPS] ..> [PicoRtc] : ppsEvent (NTP phase)\n(direct call)
 [GpsDecoder] --> [Ogn1] : OwnshipPositionMsg\nGpsStatsMsg
 [GpsDecoder] --> [Flarm2024] : OwnshipPositionMsg
 [GpsDecoder] --> [ADSLAce] : OwnshipPositionMsg\nGpsStatsMsg
@@ -170,6 +176,7 @@ package "Consumers" {
 [GpsDecoder] --> [PicoRtc] : UtcTimeMsg
 
 [AbstractGnss] --> [DataPort] : GPSSentenceMsg
+[StaticGPS] --> [DataPort] : GPSSentenceMsg
 
 @enduml
 ```
@@ -434,7 +441,7 @@ package "Wifi Consumers" {
 
 | Message | Publisher(s) | Subscriber(s) | Notes |
 | --- | --- | --- | --- |
-| `GPSSentenceMsg` | `AbstractGnss` | `GpsDecoder`, `DataPort` | Raw NMEA ingress. |
+| `GPSSentenceMsg` | `AbstractGnss`, `StaticGPS` | `GpsDecoder`, `DataPort` | Raw or generated NMEA ingress. |
 | `OwnshipPositionMsg` | `GpsDecoder` | `Ogn1`, `Flarm2024`, `ADSLAce`, `FanetAce`, `ADSBDecoder`, `AircraftTracker`, `RadioTunerRx`, `RadioTunerTx`, `Gdl90Service`, `DataPort`, `Bluetooth`, `GatasConnect` | Main ownship state fan-out. |
 | `UtcTimeMsg` | `GpsDecoder` | `PicoRtc` | RTC synchronization. |
 | `GpsStatsMsg` | `GpsDecoder` | `Ogn1`, `ADSLAce`, `Sx1262`, `Gdl90Service`, `GatasConnect`, `Idle` | GPS fix and DOP status. |

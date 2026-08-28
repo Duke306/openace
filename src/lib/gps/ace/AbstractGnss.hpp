@@ -58,6 +58,12 @@ protected:
     }
     void processNewSentence(const etl::array_view<char> &sentence);
 
+    void publishSentence(const GATAS::NMEAString &sentence)
+    {
+        getBus().receive(GATAS::GPSSentenceMsg{sentence});
+        statistics.totalReceived += 1;
+    }
+
     /** What a implementation needs to override */
     void setStatus(const etl::string_view &status)
     {
@@ -67,6 +73,16 @@ protected:
     void setStatusBaud(uint32_t baud)
     {
         statistics.baudrate = baud;
+    }
+
+    const etl::string<16> &getStatus() const
+    {
+        return statistics.status;
+    }
+
+    uint32_t getTotalReceived() const
+    {
+        return statistics.totalReceived;
     }
 
     bool isSoftwarePPS() const
