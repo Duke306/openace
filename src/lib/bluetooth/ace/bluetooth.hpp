@@ -239,7 +239,13 @@ private:
 
     SemaphoreHandle_t bufferMutex;
 
-    static bool sendNMEABuffer(BtContext &ctx);
+    enum class NmeaSendMethod : uint8_t
+    {
+        Notify,
+        AttRead,
+    };
+
+    static uint16_t sendNMEABuffer(BtContext &ctx, NmeaSendMethod method, uint16_t offset = 0, uint8_t *buffer = nullptr, uint16_t bufferSize = 0);
     static bool sendCobsBuffer(BtContext &ctx);
     static void receiveNMEA(BtContext &ctx, uint8_t *buffer, uint16_t bufferSize);
     static bool hasPendingData(const BtContext &ctx);
