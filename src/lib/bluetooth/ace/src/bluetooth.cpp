@@ -112,7 +112,7 @@ void Bluetooth::getData(etl::string_stream &stream, const etl::string_view path)
 void Bluetooth::createAdvData()
 {
     // clang-format off
-    static const uint8_t hm10UartServiceUUID[16] = {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xe0, 0xff, 0x00, 0x00};
+    static const uint8_t hm10UartServiceUUID[2] = {0xe0, 0xff};
     // clang-format on
     static constexpr size_t adFieldHeaderSize = 2;
 
@@ -128,7 +128,7 @@ void Bluetooth::createAdvData()
     advertiseData.push_back(0x06);
 
     advertiseData.push_back(1 + sizeof(hm10UartServiceUUID));
-    advertiseData.push_back(BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS);
+    advertiseData.push_back(BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS);
     advertiseData.insert(advertiseData.end(), std::begin(hm10UartServiceUUID), std::end(hm10UartServiceUUID));
 
     const size_t remainingNameBytes = advertiseData.max_size() - advertiseData.size() - adFieldHeaderSize;
@@ -530,13 +530,19 @@ int Bluetooth::attWriteCallback(hci_con_handle_t con_handle, uint16_t att_handle
     }
     switch (att_handle)
     {
+    case ATT_CHARACTERISTIC_FFE1_01_CLIENT_CONFIGURATION_HANDLE:
     case ATT_CHARACTERISTIC_6E400003_B5A3_F393_E0A9_E50E24DCCA9E_01_CLIENT_CONFIGURATION_HANDLE:
     case ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_CLIENT_CONFIGURATION_HANDLE:
     {
-        const uint16_t nmeaValueHandle =
-            att_handle == ATT_CHARACTERISTIC_6E400003_B5A3_F393_E0A9_E50E24DCCA9E_01_CLIENT_CONFIGURATION_HANDLE
-                ? ATT_CHARACTERISTIC_6E400003_B5A3_F393_E0A9_E50E24DCCA9E_01_VALUE_HANDLE
-                : ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE;
+        uint16_t nmeaValueHandle = ATT_CHARACTERISTIC_FFE1_01_VALUE_HANDLE;
+        if (att_handle == ATT_CHARACTERISTIC_6E400003_B5A3_F393_E0A9_E50E24DCCA9E_01_CLIENT_CONFIGURATION_HANDLE)
+        {
+            nmeaValueHandle = ATT_CHARACTERISTIC_6E400003_B5A3_F393_E0A9_E50E24DCCA9E_01_VALUE_HANDLE;
+        }
+        else if (att_handle == ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_CLIENT_CONFIGURATION_HANDLE)
+        {
+            nmeaValueHandle = ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE;
+        }
 
         // clang-format off
         Bluetooth::withHandle(con_handle,
@@ -610,6 +616,7 @@ int Bluetooth::attWriteCallback(hci_con_handle_t con_handle, uint16_t att_handle
     break;
 
     // Nordic UART RX and HM-10 NMEA values share the same plain-text DataPort handling.
+    case ATT_CHARACTERISTIC_FFE1_01_VALUE_HANDLE:
     case ATT_CHARACTERISTIC_6E400002_B5A3_F393_E0A9_E50E24DCCA9E_01_VALUE_HANDLE:
     case ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE:
     {
