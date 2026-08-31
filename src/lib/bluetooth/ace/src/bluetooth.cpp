@@ -37,7 +37,7 @@ void Bluetooth::start()
     sm_init();
 
     // setup ATT server
-    att_server_init(profile_data, nullptr, attWriteCallback);
+    att_server_init(profile_data, attReadCallback, attWriteCallback);
 
     // setup GATT Client
     gatt_client_init();
@@ -248,11 +248,39 @@ void Bluetooth::removeConnection(uint16_t hciHandle)
     }
 }
 
-bool Bluetooth::sendNMEABuffer(BtContext &ctx)
+uint16_t Bluetooth::sendNMEABuffer(BtContext &ctx, NmeaSendMethod method, uint16_t offset, uint8_t *buffer, uint16_t bufferSize)
 {
-    if (ctx.nmeaAttrHandle == 0 || !ctx.inUse)
+    if (!ctx.inUse)
     {
-        return false;
+        return 0;
+    }
+
+    if (method == NmeaSendMethod::AttRead)
+    {
+        if (auto guard = SemaphoreGuard(1000, instance->bufferMutex))
+        {
+            if (buffer == nullptr)
+            {
+                return etl::min(ctx.nmeaWriteBuffer.data().size(), static_cast<size_t>(ctx.mtu));
+            }
+
+            const auto packet = ctx.nmeaWriteBuffer.take();
+            if (!packet)
+            {
+                return 0;
+            }
+
+            const uint16_t readSize = etl::min(packet->size(), static_cast<size_t>(ctx.mtu));
+            const uint16_t bytesRead = att_read_callback_handle_blob(packet->data(), readSize, offset, buffer, bufferSize);
+            ctx.nmeaWriteBuffer.compact();
+            return bytesRead;
+        }
+        return 0;
+    }
+
+    if (method == NmeaSendMethod::Notify && ctx.nmeaAttrHandle == 0)
+    {
+        return 0;
     }
 
     etl::span<uint8_t> data;
@@ -262,17 +290,20 @@ bool Bluetooth::sendNMEABuffer(BtContext &ctx)
     }
     else
     {
-        return false;
+        return 0;
     }
 
     if (data.size() == 0)
     {
-        return false;
+        return 0;
     }
 
     const uint8_t sendStatus = att_server_notify(ctx.hciHandle, ctx.nmeaAttrHandle, data.data(), data.size());
+    const bool sent = sendStatus == ERROR_CODE_SUCCESS;
+    GATAS_VERIFY(sent, "Bluetooth: Send Failed");
 
-    if (sendStatus == ERROR_CODE_SUCCESS) {
+    if (sent)
+    {
         if (auto guard = SemaphoreGuard(1000, instance->bufferMutex))
         {
             ctx.nmeaWriteBuffer.compact();
@@ -280,8 +311,7 @@ bool Bluetooth::sendNMEABuffer(BtContext &ctx)
         }
     }
 
-    GATAS_VERIFY(sendStatus == ERROR_CODE_SUCCESS, "Bluetooth: Send Failed");
-    return true;
+    return static_cast<uint16_t>(sent);
 }
 
 bool Bluetooth::sendCobsBuffer(BtContext &ctx)
@@ -395,7 +425,7 @@ void Bluetooth::attContextCallback(void *context)
     auto sent = sendCobsBuffer(*btContext);
     if (!sent)
     {
-        sent = sendNMEABuffer(*btContext);
+        sent = sendNMEABuffer(*btContext, NmeaSendMethod::Notify) != 0;
     }
 
     if (!sent)
@@ -665,11 +695,23 @@ int Bluetooth::attWriteCallback(hci_con_handle_t con_handle, uint16_t att_handle
 
 uint16_t Bluetooth::attReadCallback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset, uint8_t *buffer, uint16_t buffer_size)
 {
-    UNUSED(connection_handle);
     if (att_handle == ATT_CHARACTERISTIC_GAP_DEVICE_NAME_01_VALUE_HANDLE)
     {
         return att_read_callback_handle_blob((const uint8_t *)Bluetooth::instance->localName.c_str(), Bluetooth::instance->localName.size(), offset, buffer, buffer_size);
     }
+
+    if (att_handle == ATT_CHARACTERISTIC_FFE1_01_VALUE_HANDLE ||
+        att_handle == ATT_CHARACTERISTIC_0000ffe1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE)
+    {
+        auto ctx = instance->ctxByHandle(connection_handle);
+        if (ctx == instance->connections.end())
+        {
+            return 0;
+        }
+
+        return sendNMEABuffer(*ctx, NmeaSendMethod::AttRead, offset, buffer, buffer_size);
+    }
+
     return 0;
 }
 
