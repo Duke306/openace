@@ -69,6 +69,7 @@ class Bluetooth : public BaseModule, public etl::message_router<Bluetooth, GATAS
         uint16_t mtu = 0;
         uint16_t nmeaAttrHandle = 0;
         uint16_t binaryAttrHandle = 0;
+        bool testGreetingPending = false;
         uint32_t nmeaWriteBufferErr = 0;
         uint32_t cobsWriteBufferErr = 0;
         btstack_context_callback_registration_t attCallback;
@@ -100,6 +101,7 @@ class Bluetooth : public BaseModule, public etl::message_router<Bluetooth, GATAS
             mtu = mtu_;
             nmeaAttrHandle = 0;
             binaryAttrHandle = 0;
+            testGreetingPending = false;
             nmeaWriteBufferErr = 0;
             cobsWriteBufferErr = 0;
             guardCounter = 0;
@@ -120,6 +122,7 @@ class Bluetooth : public BaseModule, public etl::message_router<Bluetooth, GATAS
             mtu = 0;
             nmeaAttrHandle = 0;
             binaryAttrHandle = 0;
+            testGreetingPending = false;
             nmeaWriteBufferErr = 0;
             cobsWriteBufferErr = 0;
             guardCounter = 0;
@@ -166,6 +169,7 @@ private:
     static void smPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size);
     static void attContextCallback(void *context);
     static void attPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size);
+    static void gattClientPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size);
     static void hciPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size);
     static int attWriteCallback(hci_con_handle_t con_handle, uint16_t att_handle, uint16_t transaction_mode, uint16_t offset, uint8_t *buffer, uint16_t buffer_size);
     static uint16_t attReadCallback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset, uint8_t *buffer, uint16_t buffer_size);

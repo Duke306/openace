@@ -41,6 +41,7 @@ void Bluetooth::start()
 
     // setup GATT Client
     gatt_client_init();
+    gatt_client_mtu_enable_auto_negotiation(0);
 
     // setup advertisements
     uint16_t adv_int_min = 6;  // 0x0030; change dto 6/12 for possible fix Android very quick disconnect
@@ -391,7 +392,7 @@ void Bluetooth::attContextCallback(void *context)
         return;
     }
 
-    bool sent = sendCobsBuffer(*btContext);
+    auto sent = sendCobsBuffer(*btContext);
     if (!sent)
     {
         sent = sendNMEABuffer(*btContext);
@@ -448,6 +449,7 @@ void Bluetooth::attPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t 
             if (createConnection(handle, mtu))
             {
                 GATAS_INFO("ATT_EVENT_CONNECTED Handle:%d MTU:%d\n", handle, mtu);
+                gatt_client_send_mtu_negotiation(gattClientPacketHandler, handle);
                 // Only re-advertise when it's possible to accept new connections
                 if (instance->hasFreeConnectionSlot())
                 {
@@ -489,6 +491,28 @@ void Bluetooth::attPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t 
     default:
         break;
     }
+}
+
+void Bluetooth::gattClientPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+{
+    UNUSED(channel);
+    UNUSED(size);
+
+    if (packet_type != HCI_EVENT_PACKET || hci_event_packet_get_type(packet) != GATT_EVENT_MTU)
+    {
+        return;
+    }
+
+    const auto handle = gatt_event_mtu_get_handle(packet);
+    const auto mtu = gatt_event_mtu_get_MTU(packet);
+    GATAS_INFO("GATT_EVENT_MTU Handle:%d MTU:%d\n", handle, mtu);
+
+    Bluetooth::withHandle(handle,
+        etl::delegate<void(BtContext &)>::create([mtu](BtContext &ctx)
+        {
+            // Retain the established compatibility margin used after peer-initiated MTU exchange.
+            ctx.mtu = mtu - 16;
+        }));
 }
 
 void Bluetooth::hciPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
@@ -552,10 +576,13 @@ int Bluetooth::attWriteCallback(hci_con_handle_t con_handle, uint16_t att_handle
                 if (enabled)
                 {
                     ctx.nmeaAttrHandle = nmeaValueHandle;
+                    ctx.testGreetingPending = true;
+                    att_server_request_to_send_notification(&ctx.attCallback, ctx.hciHandle);
                 }
                 else if (ctx.nmeaAttrHandle == nmeaValueHandle)
                 {
                     ctx.nmeaAttrHandle = 0;
+                    ctx.testGreetingPending = false;
                 }
             }));
         // clang-format on
